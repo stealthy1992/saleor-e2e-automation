@@ -5,13 +5,10 @@ pipeline {
         nodejs 'NodeJS 22' // matches the name already configured in Manage Jenkins > Tools
     }
 
-    triggers {
-        githubPush() // fires on webhook POST from GitHub (via your ngrok tunnel -> /github-webhook/)
-    }
-
     environment {
         SALEOR_API_URL = 'http://localhost:8000/graphql/'
-        DASHBOARD_URL = 'http://localhost:9000/'
+        SALEOR_DASHBOARD_URL = 'http://localhost:9000/'
+        CI = 'true'
     }
 
     stages {
@@ -23,30 +20,40 @@ pipeline {
 
         stage('Install dependencies') {
             steps {
-                sh 'npm ci'
+                powershell 'npm ci'
             }
         }
 
         stage('Install Playwright browsers') {
             steps {
-                sh 'npx playwright install --with-deps'
+                // --with-deps is a Linux-only flag (apt-based system deps) — omit
+                // it on Windows, browser binaries alone are what's needed here.
+                powershell 'npx playwright install'
             }
         }
 
         stage('Bring up Saleor stack') {
             steps {
                 dir('saleor-platform') { // adjust if your compose file lives elsewhere
-                    sh 'docker compose up -d'
+                    powershell 'docker compose up -d'
                 }
-                sh '''
-                    for i in $(seq 1 30); do
-                        if curl -sf http://localhost:8000/graphql/ -o /dev/null; then
-                            echo "API is up"
+                powershell '''
+                    $ready = $false
+                    for ($i = 1; $i -le 30; $i++) {
+                        try {
+                            $response = Invoke-WebRequest -Uri "http://localhost:8000/graphql/" -UseBasicParsing -TimeoutSec 3
+                            Write-Host "API is up"
+                            $ready = $true
                             break
-                        fi
-                        echo "Waiting for API... ($i/30)"
-                        sleep 2
-                    done
+                        } catch {
+                            Write-Host "Waiting for API... ($i/30)"
+                            Start-Sleep -Seconds 2
+                        }
+                    }
+                    if (-not $ready) {
+                        Write-Host "API did not become ready in time"
+                        exit 1
+                    }
                 '''
             }
         }
@@ -56,11 +63,11 @@ pipeline {
                 // Single invocation runs BOTH the api and ui projects defined in
                 // playwright.config.js, producing one combined HTML report.
                 // Deliberately NOT split into two separate `npx playwright test
-                // --project=X` calls (unlike OpenCart's separate Newman/Playwright
-                // stages) — two invocations would each regenerate playwright-report/
-                // from scratch, so the second run would silently overwrite the first.
+                // --project=X` calls — two invocations would each regenerate
+                // playwright-report/ from scratch, so the second would silently
+                // overwrite the first's report.
                 script {
-                    def exitCode = sh(script: 'npx playwright test', returnStatus: true)
+                    def exitCode = powershell(script: 'npx playwright test', returnStatus: true)
                     if (exitCode != 0) {
                         unstable('Playwright tests failed — build marked unstable')
                     }
@@ -72,7 +79,12 @@ pipeline {
             steps {
                 // SCRUM-20 — non-blocking for now; logs a warning rather than
                 // failing the build, since this is still being trusted incrementally.
-                sh 'node scripts/check-orphaned-orders.js || echo "Orphaned orders detected — see console output above"'
+                powershell '''
+                    node scripts/check-orphaned-orders.js
+                    if ($LASTEXITCODE -ne 0) {
+                        Write-Host "Orphaned orders detected — see console output above"
+                    }
+                '''
             }
         }
 
@@ -80,8 +92,8 @@ pipeline {
         // stage('Run k6 Load Tests') {
         //     steps {
         //         script {
-        //             def exitCode = sh(
-        //                 script: 'k6 run --out influxdb=http://localhost:8086/k6 tests/k6/load-test.js | tee k6-summary.txt',
+        //             def exitCode = powershell(
+        //                 script: 'k6 run --out influxdb=http://localhost:8086/k6 tests/k6/load-test.js | Tee-Object -FilePath k6-summary.txt',
         //                 returnStatus: true
         //             )
         //             if (exitCode != 0) {
@@ -95,14 +107,8 @@ pipeline {
         // stage('Run OWASP ZAP Authenticated Scan') {
         //     steps {
         //         script {
-        //             def exitCode = sh(
-        //                 script: '''
-        //                     docker run --rm \\
-        //                         -v /opt/zap-reports:/zap/wrk/:rw \\
-        //                         -v /opt/zap-scripts:/zap/scripts/:rw \\
-        //                         -t zaproxy/zap-stable \\
-        //                         zap.sh -cmd -autorun /zap/scripts/saleor-autorun.yaml
-        //                 ''',
+        //             def exitCode = powershell(
+        //                 script: 'docker run --rm -v C:\\zap-reports:/zap/wrk/:rw -v C:\\zap-scripts:/zap/scripts/:rw -t zaproxy/zap-stable zap.sh -cmd -autorun /zap/scripts/saleor-autorun.yaml',
         //                 returnStatus: true
         //             )
         //             if (exitCode >= 1) {
@@ -140,7 +146,7 @@ pipeline {
         }
         cleanup {
             dir('saleor-platform') {
-                sh 'docker compose down'
+                powershell 'docker compose down'
             }
         }
     }
