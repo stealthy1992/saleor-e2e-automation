@@ -92,7 +92,7 @@ class ProductsPage extends BasePage {
     }
 
     async isVariantListedInGrid(variantName) {
-         await this.page.locator('span', { hasText: 'General Information', exact: true }).waitFor({ state: 'visible' });
+        await this.page.locator('span', { hasText: 'General Information', exact: true }).waitFor({ state: 'visible' });
         const variantsHeading = this.page.getByText('Variants', { exact: true });
         await variantsHeading.scrollIntoViewIfNeeded();
 
@@ -117,12 +117,12 @@ class ProductsPage extends BasePage {
         await this.page.getByTestId('variant-name').first().waitFor({ state: 'visible' });
         const listedVariants = await this.page.getByTestId('variant-name');
         const variantCount = await listedVariants.count();
-        console.log('variant count is: ',variantCount);
+        console.log('variant count is: ', variantCount);
         for (let i = 0; i < variantCount; i++) {
             const variantTitle = await listedVariants.nth(i).innerText();
             console.log(`Variant listed is ${variantTitle.trim()} and sent was ${variantName}`);
             if (variantTitle.trim() === variantName.trim()) {
-                
+
                 return true;
             }
             // else return false;
@@ -201,8 +201,8 @@ class ProductsPage extends BasePage {
         const variantRows = await this.selectors.variantRowEditButton;
         const variantRowsCount = await variantRows.count();
         console.log('Variant row for pricing count is: ', variantRowsCount);
-        
-        await this.selectors.variantRowEditButton.nth(variantRowsCount - 2).click();    
+
+        await this.selectors.variantRowEditButton.nth(variantRowsCount - 2).click();
         // await this.page.pause();
         await this.page.locator('[data-test-id="variants-list"]').waitFor({ state: 'visible' });
         const availableChannels = await this.page.locator('[data-test-id^="Channel-"]');
@@ -486,7 +486,18 @@ class ProductsPage extends BasePage {
         const channelStatusBeforeToggle = await this.selectors.channelToggleButton.getAttribute('data-state');
         console.log('Channel status is: ', channelStatusBeforeToggle);
         await this.selectors.channelToggleButton.click();
-        
+
+        // Wait for the actual attribute change instead of reading it immediately —
+        // headed mode renders real paint frames, so an immediate read can still
+        // catch the pre-toggle value. This is a correctness fix, not just a
+        // headed-mode workaround; it should hold up in headless CI too.
+        const toggleHandle = await this.selectors.channelToggleButton.elementHandle();
+        await this.page.waitForFunction(
+            ({ el, previousState }) => el.getAttribute('data-state') !== previousState,
+            { el: toggleHandle, previousState: channelStatusBeforeToggle },
+            { timeout: 5000 }
+        );
+
         await this.selectors.productCategory.fill(category);
         const categoryValue = await this.selectors.productCategory.inputValue();
         console.log('Category is: ', categoryValue);
@@ -497,9 +508,6 @@ class ProductsPage extends BasePage {
         await this.page.getByTestId('select-option')
             .getByText(category, { exact: true })
             .click();
-
-        // await this.page.getByTestId('select-option', { hasText: product.category }).waitFor({ state: 'visible' });
-        // await this.page.getByTestId('select-option', { hasText: product.category }).click();
 
         await expect(this.selectors.productSubmitButton).toBeEnabled();
         await this.selectors.productSubmitButton.click();
