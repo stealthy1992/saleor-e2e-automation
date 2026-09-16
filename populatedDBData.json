@@ -1,0 +1,66 @@
+{
+    "channels":  null,
+    "warehouses":  null,
+    "categories":  {
+                       "edges":  [
+                                     {
+                                         "node":  {
+                                                      "id":  "Q2F0ZWdvcnk6MQ==",
+                                                      "name":  "Default Category"
+                                                  }
+                                     },
+                                     {
+                                         "node":  {
+                                                      "id":  "Q2F0ZWdvcnk6MjU=",
+                                                      "name":  "Accessories"
+                                                  }
+                                     },
+                                     {
+                                         "node":  {
+                                                      "id":  "Q2F0ZWdvcnk6Mjc=",
+                                                      "name":  "Apparel"
+                                                  }
+                                     },
+                                     {
+                                         "node":  {
+                                                      "id":  "Q2F0ZWdvcnk6NDI=",
+                                                      "name":  "Groceries"
+                                                  }
+                                     }
+                                 ]
+                   },
+    "productTypes":  {
+                         "edges":  [
+                                       {
+                                           "node":  {
+                                                        "id":  "UHJvZHVjdFR5cGU6MTc=",
+                                                        "name":  "Audiobook"
+                                                    }
+                                       },
+                                       {
+                                           "node":  {
+                                                        "id":  "UHJvZHVjdFR5cGU6MjE=",
+                                                        "name":  "Beanies \u0026 Scarfs"
+                                                    }
+                                       },
+                                       {
+                                           "node":  {
+                                                        "id":  "UHJvZHVjdFR5cGU6MQ==",
+                                                        "name":  "Default Type"
+                                                    }
+                                       },
+                                       {
+                                           "node":  {
+                                                        "id":  "UHJvZHVjdFR5cGU6MjQ=",
+                                                        "name":  "Simple Gift Card"
+                                                    }
+                                       },
+                                       {
+                                           "node":  {
+                                                        "id":  "UHJvZHVjdFR5cGU6MjM=",
+                                                        "name":  "Juice"
+                                                    }
+                                       }
+                                   ]
+                     }
+}

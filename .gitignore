@@ -5,3 +5,5 @@ playwright-report/
 allure-results/
 allure-report/
 *.log
+
+playwright/.auth/

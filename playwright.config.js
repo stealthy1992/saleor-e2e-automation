@@ -1,30 +1,38 @@
 require('dotenv').config();
-const { defineConfig } = require('@playwright/test');
-
+const { defineConfig, devices } = require('@playwright/test');
 module.exports = defineConfig({
+  globalSetup: require.resolve('./utils/global-setup.js'),
   testDir: './tests',
-  fullyParallel: true,
+  workers: 1,
   retries: process.env.CI ? 2 : 0,
-  reporter: [
-    ['html', { open: 'never' }],
-    ['list'],
-  ],
+  reporter: [['html', { open: 'never' }], ['list']],
   use: {
-    baseURL: process.env.SALEOR_API_URL || 'https://saleor.solception.com',
-    extraHTTPHeaders: {
-      'Content-Type': 'application/json',
-    },
+    baseURL: process.env.SALEOR_API_URL || 'http://localhost:8000',
     trace: 'retain-on-failure',
+    testIdAttribute: 'data-test-id',
   },
   projects: [
     {
       name: 'api',
       testDir: './tests/api',
       use: {
-        baseURL: process.env.SALEOR_API_URL || 'https://saleor.solception.com',
+        baseURL: process.env.SALEOR_API_URL || 'http://localhost:8000',
+        extraHTTPHeaders: { 'Content-Type': 'application/json' },
       },
     },
-    // 'dashboard' project (Playwright UI against saleor-dashboard.solception.com)
-    // and 'storefront' project are deliberately not scaffolded yet — see repo README.
+    {
+      name: 'ui',
+      testDir: './tests/ui',
+      fullyParallel: false,
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: process.env.SALEOR_DASHBOARD_URL || 'http://localhost:9000',
+        storageState: 'playwright/.auth/admin.json',
+        headless: true,
+        screenshot: 'on',
+        video: 'retain-on-failure',
+        trace: 'retain-on-failure',
+      },
+    },
   ],
 });
