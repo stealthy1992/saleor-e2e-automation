@@ -40,6 +40,12 @@ pipeline {
         stage('Bring up Saleor stack') {
             steps {
                 dir('saleor-platform') { // adjust if your compose file lives elsewhere
+                    
+                    withCredentials([string(credentialsId: 'SALEOR_SECRET_KEY', variable: 'SECRET_KEY')]) {
+                        powershell '''
+                            (Get-Content backend.env) -replace '^SECRET_KEY=.*', "SECRET_KEY=$env:SECRET_KEY" | Set-Content backend.env
+                        '''
+                    }
                     powershell 'docker compose up -d'
                 }
                 powershell '''
@@ -71,10 +77,17 @@ pipeline {
                 // --project=X` calls — two invocations would each regenerate
                 // playwright-report/ from scratch, so the second would silently
                 // overwrite the first's report.
-                script {
-                    def exitCode = powershell(script: 'npx playwright test', returnStatus: true)
-                    if (exitCode != 0) {
-                        unstable('Playwright tests failed — build marked unstable')
+                withCredentials([
+                    string(credentialsId: 'SALEOR_ADMIN_EMAIL', variable: 'ADMIN_EMAIL'),
+                    string(credentialsId: 'SALEOR_ADMIN_PASSWORD', variable: 'ADMIN_PASSWORD'),
+                    string(credentialsId: 'SALEOR_LIMITED_ACCESS_USER_EMAIL', variable: 'LIMITED_ACCESS_USER_EMAIL'),
+                    string(credentialsId: 'SALEOR_LIMITED_ACCESS_USER_PASSWORD', variable: 'LIMITED_ACCESS_USER_PASSWORD')
+                ]) {
+                    script {
+                        def exitCode = powershell(script: 'npx playwright test', returnStatus: true)
+                        if (exitCode != 0) {
+                            unstable('Playwright tests failed — build marked unstable')
+                        }
                     }
                 }
             }
