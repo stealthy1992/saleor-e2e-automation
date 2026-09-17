@@ -79,6 +79,7 @@ class LoginPage extends BasePage {
         try {
             await this.page.waitForURL(/home/, { timeout: 30000 });
         } catch (err) {
+            console.log('Landed on URL:', this.page.url());
             await this.page.screenshot({ path: 'login-timeout-debug.png', fullPage: true });
             throw err;
         }
