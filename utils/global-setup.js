@@ -12,7 +12,9 @@ async function saveSession(email, password, outputFile) {
     const page = await context.newPage();
     const loginPage = new LoginPage(page);
 
-    await page.goto(process.env.SALEOR_DASHBOARD_URL + '/dashboard');
+    // await page.goto(process.env.SALEOR_DASHBOARD_URL + '/dashboard');
+    const dashboardUrl = new URL('/dashboard', process.env.SALEOR_DASHBOARD_URL).toString();
+    await page.goto(dashboardUrl);
     const isLoggedIn = await loginPage.login(email, password);
     if (!isLoggedIn) throw new Error(`global-setup: login failed for ${email}`);
     await loginPage.loginConfirmed();

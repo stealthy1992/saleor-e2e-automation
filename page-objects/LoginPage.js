@@ -77,7 +77,7 @@ class LoginPage extends BasePage {
 
     async loginConfirmed() {
         try {
-            await this.page.waitForURL(/home/, { timeout: 30000 });
+            await this.page.waitForURL(/\/dashboard(?!\/dashboard)/, { timeout: 30000 });
         } catch (err) {
             console.log('Landed on URL:', this.page.url());
             await this.page.screenshot({ path: 'login-timeout-debug.png', fullPage: true });
