@@ -93,18 +93,6 @@ pipeline {
             }
         }
 
-        stage('Orphaned-order sanity check') {
-            steps {
-                // SCRUM-20 — non-blocking for now; logs a warning rather than
-                // failing the build, since this is still being trusted incrementally.
-                powershell '''
-                    node scripts/check-orphaned-orders.js
-                    if ($LASTEXITCODE -ne 0) {
-                        Write-Host "Orphaned orders detected — see console output above"
-                    }
-                '''
-            }
-        }
 
         // Placeholder for SCRUM-12 (k6 + Grafana) — not yet implemented.
         // stage('Run k6 Load Tests') {

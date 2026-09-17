@@ -1,0 +1,45 @@
+{
+  "cookies": [
+    {
+      "name": "refreshToken",
+      "value": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImtQX2JyY3JUZS1BYnhScURYQzFFVEZCemJ3NlJEQXZSeVVrbklhVGgxTW8iLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE3ODk1NTUyMjEsIm93bmVyIjoic2FsZW9yIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDAwL2dyYXBocWwvIiwiZXhwIjoxNzkyMTQ3MjIxLCJ0b2tlbiI6IjJQR3NKdHBIYmpHTSIsImVtYWlsIjoiYWRtaW5Ac2FsZW9yLmNvbSIsInR5cGUiOiJyZWZyZXNoIiwidXNlcl9pZCI6IlZYTmxjam94IiwiaXNfc3RhZmYiOnRydWUsImNzcmZUb2tlbiI6ImFzU0lxN1BjWHpUU0tqdmpGSndPTUFDaFRRdFRMRkd3RVJ5dEJlM3NQZ3pYM3Vaa3l1NGFvNEo5OHFuaVNHeTYifQ.UliQbKrSozYBfMw1o82RGTFJFus5WGJF438bcG5PxJcHGyVmpH9Gd38c9k5WKjOX-nmGfPS1FEdqpGEoIOt2o9JwyjCVEwfeqSCXzUVqKJsuCWWQAG2f9xu7V8lB3qO_qjjPIDDP0BtHBJi-BEmNlHYPgrgXu9ANMXIhS01hFeW76SIG3UWcVomW0fgEnrQoB5zkIpCxml1t4ZpH0hPVC5_M7VvW0g-LCQGWGXoZwpshvk-dHfH7_AWhdTc105MuF9TG70Yjj7hs4AeR-VMHLYOiob1Nk-HGBdW5dMIvG9CBgSyAbMrwhwAqb6JhUWu1l0wZ2JNW5QVRtUZb45oB8A",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1792147221.839299,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://localhost:9000",
+      "localStorage": [
+        {
+          "name": "requestedExternalPluginId",
+          "value": "null"
+        },
+        {
+          "name": "externalLoginFallbackUri",
+          "value": "null"
+        },
+        {
+          "name": "_saleorRefreshToken",
+          "value": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImtQX2JyY3JUZS1BYnhScURYQzFFVEZCemJ3NlJEQXZSeVVrbklhVGgxTW8iLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE3ODk1NTUyMjEsIm93bmVyIjoic2FsZW9yIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDAwL2dyYXBocWwvIiwiZXhwIjoxNzkyMTQ3MjIxLCJ0b2tlbiI6IjJQR3NKdHBIYmpHTSIsImVtYWlsIjoiYWRtaW5Ac2FsZW9yLmNvbSIsInR5cGUiOiJyZWZyZXNoIiwidXNlcl9pZCI6IlZYTmxjam94IiwiaXNfc3RhZmYiOnRydWUsImNzcmZUb2tlbiI6ImFzU0lxN1BjWHpUU0tqdmpGSndPTUFDaFRRdFRMRkd3RVJ5dEJlM3NQZ3pYM3Vaa3l1NGFvNEo5OHFuaVNHeTYifQ.UliQbKrSozYBfMw1o82RGTFJFus5WGJF438bcG5PxJcHGyVmpH9Gd38c9k5WKjOX-nmGfPS1FEdqpGEoIOt2o9JwyjCVEwfeqSCXzUVqKJsuCWWQAG2f9xu7V8lB3qO_qjjPIDDP0BtHBJi-BEmNlHYPgrgXu9ANMXIhS01hFeW76SIG3UWcVomW0fgEnrQoB5zkIpCxml1t4ZpH0hPVC5_M7VvW0g-LCQGWGXoZwpshvk-dHfH7_AWhdTc105MuF9TG70Yjj7hs4AeR-VMHLYOiob1Nk-HGBdW5dMIvG9CBgSyAbMrwhwAqb6JhUWu1l0wZ2JNW5QVRtUZb45oB8A"
+        },
+        {
+          "name": "dashboard-ripples",
+          "value": "{\"saleor-pulse\":{\"firstSeenAt\":1789555222047}}"
+        },
+        {
+          "name": "macaw-ui-theme",
+          "value": "light"
+        },
+        {
+          "name": "lastLoginMethod",
+          "value": "password"
+        }
+      ]
+    }
+  ]
+}

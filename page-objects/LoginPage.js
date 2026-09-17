@@ -20,16 +20,16 @@ class LoginPage extends BasePage {
         }
     }
 
-    
 
-    async getMenuList(){
+
+    async getMenuList() {
         let menuItemNames = [];
         const menuItems = await this.selectors.menuList.locator('> *');
         const menuItemCount = await menuItems.count();
         console.log(menuItemCount);
-        for(let i=0; i < menuItemCount; i++){
+        for (let i = 0; i < menuItemCount; i++) {
             const menuItemName = await menuItems.nth(i).innerText();
-            console.log('Menu Item name is: ',menuItemName);
+            console.log('Menu Item name is: ', menuItemName);
             menuItemNames.push(menuItemName.trim());
         }
         return menuItemNames;
@@ -76,7 +76,12 @@ class LoginPage extends BasePage {
     }
 
     async loginConfirmed() {
-        await this.page.waitForURL(/home/);
+        try {
+            await this.page.waitForURL(/home/, { timeout: 30000 });
+        } catch (err) {
+            await this.page.screenshot({ path: 'login-timeout-debug.png', fullPage: true });
+            throw err;
+        }
         console.log(await this.page.locator('span', { hasText: "Saleor Dashboard" }).count());
         await this.selectors.welcomeMessage.waitFor({ state: 'visible' });
     }
