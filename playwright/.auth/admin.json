@@ -2,10 +2,10 @@
   "cookies": [
     {
       "name": "refreshToken",
-      "value": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImtQX2JyY3JUZS1BYnhScURYQzFFVEZCemJ3NlJEQXZSeVVrbklhVGgxTW8iLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE3ODk1NTUyMjEsIm93bmVyIjoic2FsZW9yIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDAwL2dyYXBocWwvIiwiZXhwIjoxNzkyMTQ3MjIxLCJ0b2tlbiI6IjJQR3NKdHBIYmpHTSIsImVtYWlsIjoiYWRtaW5Ac2FsZW9yLmNvbSIsInR5cGUiOiJyZWZyZXNoIiwidXNlcl9pZCI6IlZYTmxjam94IiwiaXNfc3RhZmYiOnRydWUsImNzcmZUb2tlbiI6ImFzU0lxN1BjWHpUU0tqdmpGSndPTUFDaFRRdFRMRkd3RVJ5dEJlM3NQZ3pYM3Vaa3l1NGFvNEo5OHFuaVNHeTYifQ.UliQbKrSozYBfMw1o82RGTFJFus5WGJF438bcG5PxJcHGyVmpH9Gd38c9k5WKjOX-nmGfPS1FEdqpGEoIOt2o9JwyjCVEwfeqSCXzUVqKJsuCWWQAG2f9xu7V8lB3qO_qjjPIDDP0BtHBJi-BEmNlHYPgrgXu9ANMXIhS01hFeW76SIG3UWcVomW0fgEnrQoB5zkIpCxml1t4ZpH0hPVC5_M7VvW0g-LCQGWGXoZwpshvk-dHfH7_AWhdTc105MuF9TG70Yjj7hs4AeR-VMHLYOiob1Nk-HGBdW5dMIvG9CBgSyAbMrwhwAqb6JhUWu1l0wZ2JNW5QVRtUZb45oB8A",
+      "value": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImtQX2JyY3JUZS1BYnhScURYQzFFVEZCemJ3NlJEQXZSeVVrbklhVGgxTW8iLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE3ODk3MzY3MDAsIm93bmVyIjoic2FsZW9yIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDAwL2dyYXBocWwvIiwiZXhwIjoxNzkyMzI4NzAwLCJ0b2tlbiI6IjJQR3NKdHBIYmpHTSIsImVtYWlsIjoiYWRtaW5Ac2FsZW9yLmNvbSIsInR5cGUiOiJyZWZyZXNoIiwidXNlcl9pZCI6IlZYTmxjam94IiwiaXNfc3RhZmYiOnRydWUsImNzcmZUb2tlbiI6Ik1VV3BKY1N1RTFBbXc4WDRWMWROeUR0aVcxYThlSHNqSmdrWDBqbHI2NGJQSDhqUFJVV1ZSNk82MHI0UUVmZ0wifQ.FJOCFENlNH5PVSE73d5r7Ryil8Hoko6LpXKbh2GOT1HOUNuba3tn495Xy9GrkNabxWNR6IaflMP_nRROjdHjRrCP7YDd7x_jt5NWrAo6VMB1RydIVUTZ9pVk1A4COSQ1oFH5Zm1w6A7MXqP7Xq26oanA5m1X12E8EJr-GIGF0rHkR-dxVm66DBprAkDGwSqdMGOfZ7dqXzJPItOfh8tn7aI8JObb1Dfi4spacbcOsjH81VJjYo6LQIyKBnwnv6Zzu0oI0vz2TDoBzkjHTbMb5K7IQ-MglCSwKsVGbrUFWcNW8IoJXN2WM0CwhIpNp0Km_vjMP5V2g_bw1Bh_AK3A-w",
       "domain": "localhost",
       "path": "/",
-      "expires": 1792147221.839299,
+      "expires": 1792328700.828864,
       "httpOnly": true,
       "secure": false,
       "sameSite": "Lax"
@@ -16,6 +16,18 @@
       "origin": "http://localhost:9000",
       "localStorage": [
         {
+          "name": "dashboard-navigation-pins-snapshot:organization",
+          "value": "[]"
+        },
+        {
+          "name": "channel",
+          "value": "Q2hhbm5lbDox"
+        },
+        {
+          "name": "dashboard-ripples",
+          "value": "{\"saleor-pulse\":{\"firstSeenAt\":1789736701133}}"
+        },
+        {
           "name": "requestedExternalPluginId",
           "value": "null"
         },
@@ -25,11 +37,7 @@
         },
         {
           "name": "_saleorRefreshToken",
-          "value": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImtQX2JyY3JUZS1BYnhScURYQzFFVEZCemJ3NlJEQXZSeVVrbklhVGgxTW8iLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE3ODk1NTUyMjEsIm93bmVyIjoic2FsZW9yIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDAwL2dyYXBocWwvIiwiZXhwIjoxNzkyMTQ3MjIxLCJ0b2tlbiI6IjJQR3NKdHBIYmpHTSIsImVtYWlsIjoiYWRtaW5Ac2FsZW9yLmNvbSIsInR5cGUiOiJyZWZyZXNoIiwidXNlcl9pZCI6IlZYTmxjam94IiwiaXNfc3RhZmYiOnRydWUsImNzcmZUb2tlbiI6ImFzU0lxN1BjWHpUU0tqdmpGSndPTUFDaFRRdFRMRkd3RVJ5dEJlM3NQZ3pYM3Vaa3l1NGFvNEo5OHFuaVNHeTYifQ.UliQbKrSozYBfMw1o82RGTFJFus5WGJF438bcG5PxJcHGyVmpH9Gd38c9k5WKjOX-nmGfPS1FEdqpGEoIOt2o9JwyjCVEwfeqSCXzUVqKJsuCWWQAG2f9xu7V8lB3qO_qjjPIDDP0BtHBJi-BEmNlHYPgrgXu9ANMXIhS01hFeW76SIG3UWcVomW0fgEnrQoB5zkIpCxml1t4ZpH0hPVC5_M7VvW0g-LCQGWGXoZwpshvk-dHfH7_AWhdTc105MuF9TG70Yjj7hs4AeR-VMHLYOiob1Nk-HGBdW5dMIvG9CBgSyAbMrwhwAqb6JhUWu1l0wZ2JNW5QVRtUZb45oB8A"
-        },
-        {
-          "name": "dashboard-ripples",
-          "value": "{\"saleor-pulse\":{\"firstSeenAt\":1789555222047}}"
+          "value": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImtQX2JyY3JUZS1BYnhScURYQzFFVEZCemJ3NlJEQXZSeVVrbklhVGgxTW8iLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE3ODk3MzY3MDAsIm93bmVyIjoic2FsZW9yIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDAwL2dyYXBocWwvIiwiZXhwIjoxNzkyMzI4NzAwLCJ0b2tlbiI6IjJQR3NKdHBIYmpHTSIsImVtYWlsIjoiYWRtaW5Ac2FsZW9yLmNvbSIsInR5cGUiOiJyZWZyZXNoIiwidXNlcl9pZCI6IlZYTmxjam94IiwiaXNfc3RhZmYiOnRydWUsImNzcmZUb2tlbiI6Ik1VV3BKY1N1RTFBbXc4WDRWMWROeUR0aVcxYThlSHNqSmdrWDBqbHI2NGJQSDhqUFJVV1ZSNk82MHI0UUVmZ0wifQ.FJOCFENlNH5PVSE73d5r7Ryil8Hoko6LpXKbh2GOT1HOUNuba3tn495Xy9GrkNabxWNR6IaflMP_nRROjdHjRrCP7YDd7x_jt5NWrAo6VMB1RydIVUTZ9pVk1A4COSQ1oFH5Zm1w6A7MXqP7Xq26oanA5m1X12E8EJr-GIGF0rHkR-dxVm66DBprAkDGwSqdMGOfZ7dqXzJPItOfh8tn7aI8JObb1Dfi4spacbcOsjH81VJjYo6LQIyKBnwnv6Zzu0oI0vz2TDoBzkjHTbMb5K7IQ-MglCSwKsVGbrUFWcNW8IoJXN2WM0CwhIpNp0Km_vjMP5V2g_bw1Bh_AK3A-w"
         },
         {
           "name": "macaw-ui-theme",

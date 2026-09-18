@@ -60,7 +60,7 @@ test.describe.serial('4.4 Order Management UI', () => {
             additionalOrderInfo = await orderPage.fetchAdditionalOrderDetails();
             console.log('additional info: ', additionalOrderInfo);
             orderUUID = await query('SELECT id FROM order_order WHERE number = $1 LIMIT 1', [detailOrder.orderNumber]);
-            orderRow = await query('SELECT * FROM order_orderline WHERE order_id = $1', [orderUUID[0].id]);
+            orderRow = await query('SELECT * FROM order_orderline WHERE order_id = $1 ORDER BY id ASC', [orderUUID[0].id]);
             expect(lineItemsOnUI[0].Product.trim()).toBe(orderRow[0].product_name.trim());
             expect(lineItemsOnUI[0].SKU.trim()).toBe(orderRow[0].product_sku.trim());
         });

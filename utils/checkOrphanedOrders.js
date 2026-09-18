@@ -7,7 +7,7 @@
 // post-build stage with a failed exit code failing the build.
 
 require('dotenv').config();
-const { query, pool } = require('../utils/db-client'); // adjust path to match your scripts/ location
+const { query, closePool } = require('../utils/db-client'); // adjust path to match your scripts/ location
 
 async function main() {
     const orphaned = await query(
@@ -31,13 +31,13 @@ async function main() {
 }
 
 main()
-    .then((exitCode) => {
-        pool.end();
+    .then(async (exitCode) => {
+        await closePool();
         process.exit(exitCode);
     })
-    .catch((err) => {
+    .catch(async (err) => {
         console.error('check-orphaned-orders: script itself threw:', err);
-        pool.end();
+        await closePool();
         process.exit(2);
     });
 

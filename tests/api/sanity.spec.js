@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { query, pool } = require('../../utils/db-client');
+const { query } = require('../../utils/db-client');
 
 test.describe('DB connectivity - sanity check', () => {
   test('staff account exists in Postgres', async () => {
@@ -37,7 +37,4 @@ test.describe('DB connectivity - sanity check', () => {
     }
   })
 
-  test.afterAll(async () => {
-    await pool.end(); // without this, the pg Pool stays open and Playwright hangs after the run
-  });
 });

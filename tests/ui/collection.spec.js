@@ -148,8 +148,6 @@ test.describe.serial('Collection Testing Suite', () => {
         expect(productExistResult[0].name).toBe(assignedProduct.name);
     })
 
-    test.use({ storageState: 'playwright/.auth/limited-staff.json' });
-
     test('CAT-UI-029 should allow the limited-access (MANAGE_PRODUCTS-only) staff to manage categories/collections via the UI', async ({ page }) => {
         await page.goto('collections'); // check the real path — 'collections' alone is likely missing the leading segment
         await collectionPage.navigateToCollection('Summer Picks');

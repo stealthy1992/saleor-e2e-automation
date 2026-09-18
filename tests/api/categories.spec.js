@@ -1,6 +1,6 @@
 const { test, expect } = require('../../fixtures/auth');
 const { graphqlRequest } = require('../../utils/graphql-client');
-const { query, pool } = require('../../utils/db-client');
+const { query } = require('../../utils/db-client');
 
 test.describe('Catalog listing and channel filtering', () => {
   test('lists categories and matches the seeded category table', async ({ request }) => {
@@ -220,10 +220,5 @@ test.describe('Catalog listing and channel filtering', () => {
       expect(response.ok()).toBeTruthy();
       expect(data.categoryDelete.errors).toEqual([]);
     })
-  })
-
-
-  test.afterAll(async () => {
-    await pool.end();
   });
 });
