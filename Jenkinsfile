@@ -92,6 +92,7 @@ pipeline {
                     string(credentialsId: 'SALEOR_ADMIN_PASSWORD', variable: 'ADMIN_PASSWORD'),
                     string(credentialsId: 'SALEOR_LIMITED_ACCESS_USER_EMAIL', variable: 'LIMITED_ACCESS_USER_EMAIL'),
                     string(credentialsId: 'SALEOR_LIMITED_ACCESS_USER_PASSWORD', variable: 'LIMITED_ACCESS_USER_PASSWORD')
+                    string(credentialsId: 'SALEOR_DATABASE_URL', variable: 'DATABASE_URL')
                 ]) {
                     script {
                         def exitCode = powershell(script: 'npx playwright test', returnStatus: true)
