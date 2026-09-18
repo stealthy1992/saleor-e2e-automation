@@ -61,6 +61,16 @@ pipeline {
                             Start-Sleep -Seconds 2
                         }
                     }
+                       for ($i = 1; $i -le 30; $i++) {
+                        try {
+                            $response = Invoke-WebRequest -Uri "http://localhost:9000" -UseBasicParsing -TimeoutSec 3
+                            Write-Host "Dashboard is up"
+                            break
+                        } catch {
+                            Write-Host "Waiting for Dashboard... ($i/30)"
+                            Start-Sleep -Seconds 2
+                        }
+                    }
                     if (-not $ready) {
                         Write-Host "API did not become ready in time"
                         exit 1
