@@ -10,7 +10,7 @@ class LoginPage extends BasePage {
             email: page.getByTestId('email'),
             password: page.getByTestId('password'),
             loginButton: page.getByTestId('submit'),
-            welcomeMessage: page.locator('span', { hasText: "Saleor Dashboard" }),
+            welcomeMessage: page.locator('span', { hasText: "Saleor Dashboard", exact: true }),
             loggedInEmail: page.locator('.ellipsis', { has: page.locator('span') }),
             loginErrorMessage: page.getByTestId('login-error-message'),
             logoutMenu: page.getByTestId('userMenu'),
@@ -59,8 +59,9 @@ class LoginPage extends BasePage {
         await this.page.waitForTimeout(3000);
         await this.selectors.loginButton.click();
         // await this.page.waitForTimeout(3000);
-        await this.selectors.welcomeMessage.waitFor({ state: 'visible', timeout: 15000 });
-        if (await this.selectors.welcomeMessage.isVisible()) {
+        await this.dismissAnnouncement();
+        await this.selectors.menuList.waitFor({ state: 'visible', timeout: 5000 });
+        if (await this.selectors.menuList.isVisible()) {
             return true;
         }
         else return false;
