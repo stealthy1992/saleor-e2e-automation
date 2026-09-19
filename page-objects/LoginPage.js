@@ -59,7 +59,7 @@ class LoginPage extends BasePage {
         await this.page.waitForTimeout(3000);
         await this.selectors.loginButton.click();
         // await this.page.waitForTimeout(3000);
-        await this.selectors.welcomeMessage.waitFor({ state: 'visible', timeout: 5000 });
+        await this.selectors.welcomeMessage.waitFor({ state: 'visible', timeout: 15000 });
         if (await this.selectors.welcomeMessage.isVisible()) {
             return true;
         }

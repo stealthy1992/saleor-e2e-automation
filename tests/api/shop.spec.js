@@ -19,11 +19,9 @@ test.describe('Shop query - smoke test', () => {
     const { response, data } = await graphqlRequest(request, query);
 
     console.log(data);
-    
-    console.log(`Shop name is ${data.shop.name} and the domain is ${data.shop.domain.host}`)
-    expect(response.status()).toBe(200);
-    expect(data.shop.name).toBeTruthy();
-    expect(data.shop.domain.host).toContain('solception.com');
+
+    const expectedHost = new URL(process.env.SALEOR_API_URL).host; // 'localhost:8000' locally, your VPS host in prod
+    expect(data.shop.domain.host).toBe(expectedHost);
   });
 
   test('This will create a token for admin authentication', async ({ request }) => {

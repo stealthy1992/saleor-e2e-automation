@@ -61,13 +61,26 @@ pipeline {
                             Start-Sleep -Seconds 2
                         }
                     }
-                       for ($i = 1; $i -le 30; $i++) {
+                    for ($i = 1; $i -le 30; $i++) {
                         try {
                             $response = Invoke-WebRequest -Uri "http://localhost:9000" -UseBasicParsing -TimeoutSec 3
                             Write-Host "Dashboard is up"
                             break
                         } catch {
                             Write-Host "Waiting for Dashboard... ($i/30)"
+                            Start-Sleep -Seconds 2
+                        }
+                    }
+                    for ($i = 1; $i -le 30; $i++) {
+                        try {
+                            $body = '{"query":"{ shop { name } }"}'
+                            $response = Invoke-WebRequest -Uri "http://localhost:8000/graphql/" -Method POST -Body $body -ContentType "application/json" -UseBasicParsing -TimeoutSec 3
+                            if ($response.Content -match '"name"') {
+                                Write-Host "GraphQL is answering real queries"
+                                break
+                            }
+                        } catch {
+                            Write-Host "Waiting for GraphQL to answer queries... ($i/30)"
                             Start-Sleep -Seconds 2
                         }
                     }

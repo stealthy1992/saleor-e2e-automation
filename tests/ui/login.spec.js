@@ -294,6 +294,7 @@ test.describe('This will test the entire login module', () => {
 
     test('F. Session & Navigation Edge Cases', async ({ page, request }) => {
         let refreshCookie;
+        const apiUrl = process.env.SALEOR_API_URL + '/graphql/';
         await test.step('LOGIN-022 should redirect an unauthenticated user to login when visiting a protected URL directly', async () => {
             await page.waitForTimeout(1000);
             await page.goto('/dashboard/products/');
@@ -340,7 +341,7 @@ test.describe('This will test the entire login module', () => {
             // cookies = await page.context().cookies();
             // console.log('Refresh token persists after logout (expected — Saleor auth is stateless, see notes):', !!refreshCookie);
             // if (refreshCookie) {
-            const response = await request.post('http://157.173.200.37/saleor-api/graphql/', {
+            const response = await request.post(apiUrl, {
                 data: {
                     query: `
                             mutation TokenRefresh($refreshToken: String!) {
@@ -391,7 +392,7 @@ test.describe('This will test the entire login module', () => {
     test('G. RBAC-Adjacent (cross-reference with Phase 1 limitedStaff)', async ({ page }) => {
         let mePermissions = null;
         await test.step('LOGIN-027 should allow the limited-access (MANAGE_PRODUCTS-only) staff account to log in', async () => {
-            await page.route('http://157.173.200.37/saleor-api/graphql/', async (route) => {
+            await page.route(apiUrl, async (route) => {
                 const request = route.request();
                 const postData = request.postDataJSON();
                 const response = await route.fetch();
