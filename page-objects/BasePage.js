@@ -32,21 +32,7 @@ class BasePage {
         await this.signInForm.waitFor({ state: 'visible' })
     }
 
-    async login(email, password) {
-        // await this.selectors.dashboardPage.waitFor({ state: 'visible' });
-        await this.email.waitFor({ state: 'visible' });
-        await this.email.fill(email);
-        await this.password.fill(password);
-        await this.page.waitForTimeout(3000);
-        await this.loginButton.click();
-        // await this.page.waitForTimeout(3000);
-        await this.welcomeMessage.waitFor({ state: 'visible', timeout: 5000 });
-        if (await this.welcomeMessage.isVisible()) {
-            return true;
-        }
-        else return false;
-
-    }
+    
 
     async dismissAnnouncement() {
         try {

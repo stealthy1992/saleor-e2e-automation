@@ -43,7 +43,10 @@ pipeline {
                     
                     withCredentials([string(credentialsId: 'SALEOR_SECRET_KEY', variable: 'SECRET_KEY')]) {
                         powershell '''
-                            (Get-Content backend.env) -replace '^SECRET_KEY=.*', "SECRET_KEY=$env:SECRET_KEY" | Set-Content backend.env
+                            $content = [System.IO.File]::ReadAllText("backend.env")
+                            $content = $content -replace '(?m)^SECRET_KEY=.*', "SECRET_KEY=$env:SECRET_KEY"
+                            [System.IO.File]::WriteAllText("backend.env", $content, (New-Object System.Text.UTF8Encoding $false))
+                            Get-FileHash backend.env | Format-List
                         '''
                     }
                     powershell 'docker compose up -d'

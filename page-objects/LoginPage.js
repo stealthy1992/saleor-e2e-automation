@@ -52,20 +52,20 @@ class LoginPage extends BasePage {
     }
 
     async login(email, password) {
-        // await this.selectors.dashboardPage.waitFor({ state: 'visible' });
         await this.selectors.email.waitFor({ state: 'visible' });
         await this.selectors.email.fill(email);
         await this.selectors.password.fill(password);
         await this.page.waitForTimeout(3000);
         await this.selectors.loginButton.click();
-        // await this.page.waitForTimeout(3000);
         await this.dismissAnnouncement();
-        await this.selectors.menuList.waitFor({ state: 'visible', timeout: 5000 });
-        if (await this.selectors.menuList.isVisible()) {
-            return true;
+        try {
+            await this.selectors.menuList.waitFor({ state: 'visible', timeout: 10000 });
+        } catch (err) {
+            console.log('Login menuList timeout — current URL:', this.page.url());
+            await this.page.screenshot({ path: `login-menu-timeout-${email}.png`, fullPage: true });
+            throw err;
         }
-        else return false;
-
+        return true;
     }
 
     async logout() {

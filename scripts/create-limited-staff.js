@@ -19,7 +19,7 @@ async function main() {
             permissionGroupCreate(input: $input) { group { id name } errors { field message code } }
         }
     `, {
-        input: { addPermissions: ["MANAGE_PRODUCTS"], name: "Standing Limited-Access QA Group", restrictedAccessToChannels: false }
+        input: { addPermissions: ["MANAGE_PRODUCTS"], name: "Limited-Access QA Group", restrictedAccessToChannels: false }
     }, staffToken);
     if (groupData.permissionGroupCreate.errors.length) throw new Error(`Group creation failed: ${JSON.stringify(groupData.permissionGroupCreate.errors)}`);
     const groupId = groupData.permissionGroupCreate.group.id;
