@@ -3,7 +3,7 @@ const { defineConfig, devices } = require('@playwright/test');
 module.exports = defineConfig({
   globalSetup: require.resolve('./utils/global-setup.js'),
   testDir: './tests',
-  workers: 1,
+  workers: 2,
   retries: process.env.CI ? 2 : 0,
   reporter: [['html', { open: 'never' }], ['json', { outputFile: 'results.json' }],  ['list']],
   use: {

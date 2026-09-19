@@ -1,8 +1,18 @@
 require('dotenv').config();
-console.log(process.env.LIMITED_ACCESS_USER_PASSWORD);
 
-const { test, expect } = require('@playwright/test');
-const LoginPage = require('../../page-objects/LoginPage')
+const base = require('@playwright/test');
+// const { test, expect } = require('@playwright/test');
+const LoginPage = require('../../page-objects/LoginPage');
+
+const test = base.test.extend({
+  page: async ({ browser }, use) => {
+    const context = await browser.newContext({ storageState: undefined });
+    const page = await context.newPage();
+    await use(page);
+    await context.close();
+  },
+});
+const { expect } = base;
 
 test.describe('This will test the entire login module', () => {
     let loginPage;
@@ -14,6 +24,8 @@ test.describe('This will test the entire login module', () => {
         email: process.env.LIMITED_ACCESS_USER_EMAIL,
         password: process.env.LIMITED_ACCESS_USER_PASSWORD
     }
+
+
     test.beforeEach(async ({ page }) => {
         loginPage = new LoginPage(page);
         await page.goto('/dashboard');

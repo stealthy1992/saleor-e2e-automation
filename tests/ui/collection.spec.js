@@ -61,7 +61,7 @@ test.describe.serial('Collection Testing Suite', () => {
             await collectionPage.navigateToAssignedProducts();
             await collectionPage.assignProduct(assignedProduct);
             await page.waitForTimeout(2000);
-            const assignedProductIDInDB = (await query('SELECT id FROM product_product WHERE name = $1',[assignedProduct.name]))[0];
+            const assignedProductIDInDB = (await query('SELECT id FROM product_product WHERE name = $1', [assignedProduct.name]))[0];
             const productInCollectionResult = await query('SELECT product_id FROM product_collectionproduct WHERE collection_id = $1', [collectionId]);
             console.log(`DB result is ${productInCollectionResult} and UI ID is ${assignedProductIDInDB}`);
             // expect(productInCollectionResult).toContainEqual(assignedProductIDInDB.id);
@@ -83,7 +83,7 @@ test.describe.serial('Collection Testing Suite', () => {
         })
 
         await test.step('CAT-UI-020 should reflect channel-listing changes in product_collectionchannellisting immediately', async () => {
-        
+
             console.log(`Collection ID is ${collectionId}`);
             const channelListingResult = await query('SELECT channel_id FROM product_collectionchannellisting WHERE collection_id = $1', [collectionId])
             // console.log(channelListingResult);
@@ -152,7 +152,13 @@ test.describe.serial('Collection Testing Suite', () => {
         await page.goto('collections'); // check the real path — 'collections' alone is likely missing the leading segment
         await collectionPage.navigateToCollection('Summer Picks');
         await collectionPage.updateCollection(limitedStaffCollection);
-        const limitedStaffUpdateInfo = await query('SELECT * FROM product_collection WHERE id = $1 LIMIT 1', [5]);
+        const [summerPicks] = await query(
+            `SELECT id FROM product_collection WHERE name = 'Summer Picks' LIMIT 1`
+        );
+        const limitedStaffUpdateInfo = await query(
+            'SELECT * FROM product_collection WHERE id = $1 LIMIT 1',
+            [summerPicks.id]
+        );
         expect(limitedStaffUpdateInfo[0].name).toBe(limitedStaffCollection.name);
         expect(limitedStaffUpdateInfo[0].description.blocks[0].data.text.trim()).toBe(limitedStaffCollection.description);
     });
