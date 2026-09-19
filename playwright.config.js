@@ -4,8 +4,8 @@ module.exports = defineConfig({
   globalSetup: require.resolve('./utils/global-setup.js'),
   testDir: './tests',
   workers: 1,
-  retries: process.env.CI ? 1 : 0,
-  reporter: [['html', { open: 'never' }], ['list']],
+  retries: process.env.CI ? 2 : 0,
+  reporter: [['html', { open: 'never' }], ['json', { outputFile: 'results.json' }],  ['list']],
   use: {
     baseURL: process.env.SALEOR_API_URL || 'http://localhost:8000',
     trace: 'retain-on-failure',
