@@ -197,12 +197,14 @@ class ProductsPage extends BasePage {
     }
 
     async navigateToTestVariant() {
-        await this.selectors.variantRowEditButton.last().waitFor({ state: 'visible' });
-        const variantRows = await this.selectors.variantRowEditButton;
-        const variantRowsCount = await variantRows.count();
+        // await this.selectors.variantRowEditButton.last().waitFor({ state: 'visible' });
+        // const variantRows = await this.selectors.variantRowEditButton;
+        // const variantRowsCount = await variantRows.count();
+        // console.log('Variant row for pricing count is: ', variantRowsCount);
+        await this.page.getByTestId('row-action-button').last().waitFor({ state: 'visible' });
+        const variantRowsCount = await this.page.getByTestId('row-action-button').count();
         console.log('Variant row for pricing count is: ', variantRowsCount);
-
-        await this.selectors.variantRowEditButton.nth(variantRowsCount - 2).click();
+        await this.page.getByTestId('row-action-button').nth(variantRowsCount - 2).click();
         // await this.page.pause();
         await this.page.locator('[data-test-id="variants-list"]').waitFor({ state: 'visible' });
         const availableChannels = await this.page.locator('[data-test-id^="Channel-"]');
