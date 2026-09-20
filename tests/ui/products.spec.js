@@ -577,7 +577,7 @@ test.describe.serial('Dashboard UI — Product Management Module: Test Scenario 
     });
 
     test('I. RBAC — Product Module (ties to Section G / login modules PROD-adjacent items)', async ({ page }) => {
-        // loginPage = new LoginPage(page)
+        loginPage = new LoginPage(page)
         const updatedName = 'UI Test Product - Updated';
         const limitedUser = {
             email: "limited-staff-standing@tester.com",
@@ -588,7 +588,7 @@ test.describe.serial('Dashboard UI — Product Management Module: Test Scenario 
             await page.goto('/dashboard');
             await productsPage.dismissAnnouncement();
             await productsPage.logout();
-            await productsPage.login(limitedUser.email, limitedUser.password);
+            await loginPage.login(limitedUser.email, limitedUser.password);
             await page.goto('/dashboard/products');
             await productsPage.navigateToProduct(updatedName);
             await productsPage.updateProductTitle(limitedUserProductName);

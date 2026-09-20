@@ -1,6 +1,7 @@
 require('dotenv').config();
 
 const base = require('@playwright/test');
+const { request: pwRequest } = require('@playwright/test');
 // const { test, expect } = require('@playwright/test');
 const LoginPage = require('../../page-objects/LoginPage');
 
@@ -16,6 +17,7 @@ const { expect } = base;
 
 test.describe('This will test the entire login module', () => {
     let loginPage;
+    const apiUrl = process.env.SALEOR_API_URL + '/graphql/';
     const admin = {
         email: process.env.ADMIN_EMAIL,
         password: process.env.ADMIN_PASSWORD
@@ -306,7 +308,7 @@ test.describe('This will test the entire login module', () => {
 
     test('F. Session & Navigation Edge Cases', async ({ page, request }) => {
         let refreshCookie;
-        const apiUrl = process.env.SALEOR_API_URL + '/graphql/';
+        
         await test.step('LOGIN-022 should redirect an unauthenticated user to login when visiting a protected URL directly', async () => {
             await page.waitForTimeout(1000);
             await page.goto('/dashboard/products/');
@@ -333,27 +335,9 @@ test.describe('This will test the entire login module', () => {
 
         await test.step('LOGIN-025 should clear the session and redirect to login after logout', async () => {
 
-            // await page.route('**/graphql/', async (route) => {
-            //     const request = route.request();
-            //     const postData = request.postDataJSON();
-            //     const response = await route.fetch();
-            //     const responseBody = await response.json();
-
-            //     console.log(postData);
-            //     console.log(responseBody)
-            //     if (postData?.query?.includes('tokenDelete')) {
-            //         console.log('Deletion found')
-            //     }
-
-            //     // await route.fulfill({ response });
-
-            // })
-
             await loginPage.logout();
-            // cookies = await page.context().cookies();
-            // console.log('Refresh token persists after logout (expected — Saleor auth is stateless, see notes):', !!refreshCookie);
-            // if (refreshCookie) {
-            const response = await request.post(apiUrl, {
+            const apiCtx = await pwRequest.newContext({ baseURL: process.env.SALEOR_API_URL });
+            const response = await apiCtx.post('/graphql/', {
                 data: {
                     query: `
                             mutation TokenRefresh($refreshToken: String!) {
@@ -366,15 +350,9 @@ test.describe('This will test the entire login module', () => {
                     variables: { refreshToken: refreshCookie.value },
                 },
             });
-            // const status = response.status();
-            // console.log('Status:', status);
             const body = await response.json();
-            // }
-
-            // const sessionData = await page.evaluate(() => localStorage.getItem('token'));
-            // expect(sessionData).toBeNull();
+            await apiCtx.dispose();
             console.log('tokenRefresh after logout result:', JSON.stringify(body));
-
 
         })
     })

@@ -129,7 +129,7 @@ class CustomerPage extends BasePage {
     normalizeUIOrder(o) {
         return {
             number: Number(o.orderNumber.replace('#', '')),
-            status: o.orderStatus.toLowerCase(),
+            status: o.orderStatus.trim().toLowerCase().replace(/\s+/g, '_'),
             total: parseFloat(o.orderTotal.replace(/[A-Z]/g, '')), // strip currency letters, keep the number
             currency: o.orderTotal.match(/[A-Z]+/)[0],
         };

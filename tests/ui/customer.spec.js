@@ -20,6 +20,11 @@ async function assertTokenCreateRejected(email, password) {
     await ctx.dispose();
 }
 
+function normalizeStatusLabel(uiLabel) {
+    return uiLabel.trim().toLowerCase().replace(/\s+/g, '_');
+}
+
+
 customerTest.describe.serial('4.5 Customer Management UI', () => {
 
     customerTest.describe('A. List & Locate (P0)', async () => {

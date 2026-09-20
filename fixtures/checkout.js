@@ -1,4 +1,4 @@
-const { test: productTest } = require('./product'); // chains onto product.js -> auth.js (no customer.js needed — guest checkout)
+const { test: productTest } = require('./customer'); // chains onto customer.js -> auth.js 
 const { request: pwRequest } = require('@playwright/test');
 const { graphqlRequest } = require('../utils/graphql-client');
 const { pool } = require('../utils/db-client'); // adjust path if db-client.js lives elsewhere

@@ -70,12 +70,12 @@ test.describe.serial('This suite will test limited-access user creation and perm
                 addPermissions: ["MANAGE_PRODUCTS"],
                 addUsers: [staffId],
                 addChannels: ["Q2hhbm5lbDox"],
-                name: "Super Custom Group",
+                name: `Super Custom Group ${Date.now()}`,
                 restrictedAccessToChannels: true
             }
         }, staffToken);
 
-        console.log('Permission group result is: ',data);
+        console.log('Permission group result is: ',data.permissionGroupCreate.errors);
     })
 
     test('This will set password for the limited-access staff', async ({ request }) => {

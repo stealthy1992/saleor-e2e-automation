@@ -2,10 +2,10 @@
   "cookies": [
     {
       "name": "refreshToken",
-      "value": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImtQX2JyY3JUZS1BYnhScURYQzFFVEZCemJ3NlJEQXZSeVVrbklhVGgxTW8iLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE3ODk3MzU2NjQsIm93bmVyIjoic2FsZW9yIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDAwL2dyYXBocWwvIiwiZXhwIjoxNzkyMzI3NjY0LCJ0b2tlbiI6IkRZT0hHRmExZUZVSCIsImVtYWlsIjoibGltaXRlZC1zdGFmZi1zdGFuZGluZ0B0ZXN0ZXIuY29tIiwidHlwZSI6InJlZnJlc2giLCJ1c2VyX2lkIjoiVlhObGNqbzBPUT09IiwiaXNfc3RhZmYiOnRydWUsImNzcmZUb2tlbiI6ImxBb0FiTGdkd1M4YmxKd2UyWDhGbUEwTmQxbkRVeGRZb2w5MWN3S3NVR2NFY0YxNUg0bmZ2YzJaajVPdDZMZEkifQ.CX31cvtyXdEHUgq94rjLh6b39Y21bXqsjdL9orSYn6-UoycpXZMMDYqoJ2W6iszm1ye7ZvSveNbB7igd5YnGhQaooNiyCw_yjZfXKZN3C-dvrMOXI9vLtziDsSKVWJnmOytEfTAGyIr5163DsByi8tulUJRUJbd8X-OY879P_jabuNHrUEf98a0gArel372820Dd4XEyZ097i35NxVS__fkEjIKG_iBlxDOIOpE2AK5vGhhrqODHtSJypTsMPahHm8NTTavATga-2k62aP1FYG6lIe8x1RX8OiPoyOjGnFKzc4lJe5fu3eMC1Cps0gRJxDpj9nIKhgCeLXQDFL8u6w",
+      "value": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImtQX2JyY3JUZS1BYnhScURYQzFFVEZCemJ3NlJEQXZSeVVrbklhVGgxTW8iLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE3ODk4OTcxOTksIm93bmVyIjoic2FsZW9yIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDAwL2dyYXBocWwvIiwiZXhwIjoxNzkyNDg5MTk5LCJ0b2tlbiI6IkZVQVgyeFpuNUV2TSIsImVtYWlsIjoibGltaXRlZC1zdGFmZi1zdGFuZGluZ0B0ZXN0ZXIuY29tIiwidHlwZSI6InJlZnJlc2giLCJ1c2VyX2lkIjoiVlhObGNqb3lOVEk9IiwiaXNfc3RhZmYiOnRydWUsImNzcmZUb2tlbiI6InQwMjlCQnV2Q3J4YUFTVkppek56dFdqaGFsdFduVGNJMGczY3dtRmdEb011WUxFTU1wWlRPd1Y3RHo3QkNDdmUifQ.V1P5YdfFfzMaNdgLCR_IwqHoVdYSFVFMEaDInoWiCJZB9LbKGkz5qZ0pB9ttuKmuRcLxbaYZ3Z0P6DNpsvPsZFrstuhSfJYDoze-OFLo7OwRkF_Wi1gHzQZsb_Sd3JYwCZStdYObMBI6DQrk6vsoVr3aycRIbguwVYwVTRBz6g-fgH1wVUu6ilQg8pJ_afUq0D3457VC3eOJkC2M7yWQuJ2a1YBVmi4eaNBZ5yhq1GmYfZ-7I0tf8nLpYL5O-Y63uVMcu3qPOkyw57xUy-QIcLA4P3BzI5G8FOOHX1BgTpyrSKhtcyr-b91MYGz3DRMo1I-3Ewm0LQZypZskqpAlNQ",
       "domain": "localhost",
       "path": "/",
-      "expires": 1792327664.989404,
+      "expires": 1792489199.001965,
       "httpOnly": true,
       "secure": false,
       "sameSite": "Lax"
@@ -20,12 +20,20 @@
           "value": "[]"
         },
         {
+          "name": "dashboard-extensions-snapshot:HOMEPAGE_WIDGETS",
+          "value": "[]"
+        },
+        {
+          "name": "dashboard-extensions-snapshot:NAVIGATION_CATALOG,NAVIGATION_CUSTOMERS,NAVIGATION_DISCOUNTS,NAVIGATION_ORDERS,NAVIGATION_PAGES,NAVIGATION_TRANSLATIONS",
+          "value": "[]"
+        },
+        {
           "name": "channel",
           "value": "Q2hhbm5lbDox"
         },
         {
           "name": "dashboard-ripples",
-          "value": "{\"saleor-pulse\":{\"firstSeenAt\":1789735665164}}"
+          "value": "{\"saleor-pulse\":{\"firstSeenAt\":1789897200171,\"manuallyHidden\":true}}"
         },
         {
           "name": "requestedExternalPluginId",
@@ -37,7 +45,11 @@
         },
         {
           "name": "_saleorRefreshToken",
-          "value": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImtQX2JyY3JUZS1BYnhScURYQzFFVEZCemJ3NlJEQXZSeVVrbklhVGgxTW8iLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE3ODk3MzU2NjQsIm93bmVyIjoic2FsZW9yIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDAwL2dyYXBocWwvIiwiZXhwIjoxNzkyMzI3NjY0LCJ0b2tlbiI6IkRZT0hHRmExZUZVSCIsImVtYWlsIjoibGltaXRlZC1zdGFmZi1zdGFuZGluZ0B0ZXN0ZXIuY29tIiwidHlwZSI6InJlZnJlc2giLCJ1c2VyX2lkIjoiVlhObGNqbzBPUT09IiwiaXNfc3RhZmYiOnRydWUsImNzcmZUb2tlbiI6ImxBb0FiTGdkd1M4YmxKd2UyWDhGbUEwTmQxbkRVeGRZb2w5MWN3S3NVR2NFY0YxNUg0bmZ2YzJaajVPdDZMZEkifQ.CX31cvtyXdEHUgq94rjLh6b39Y21bXqsjdL9orSYn6-UoycpXZMMDYqoJ2W6iszm1ye7ZvSveNbB7igd5YnGhQaooNiyCw_yjZfXKZN3C-dvrMOXI9vLtziDsSKVWJnmOytEfTAGyIr5163DsByi8tulUJRUJbd8X-OY879P_jabuNHrUEf98a0gArel372820Dd4XEyZ097i35NxVS__fkEjIKG_iBlxDOIOpE2AK5vGhhrqODHtSJypTsMPahHm8NTTavATga-2k62aP1FYG6lIe8x1RX8OiPoyOjGnFKzc4lJe5fu3eMC1Cps0gRJxDpj9nIKhgCeLXQDFL8u6w"
+          "value": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImtQX2JyY3JUZS1BYnhScURYQzFFVEZCemJ3NlJEQXZSeVVrbklhVGgxTW8iLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE3ODk4OTcxOTksIm93bmVyIjoic2FsZW9yIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDAwL2dyYXBocWwvIiwiZXhwIjoxNzkyNDg5MTk5LCJ0b2tlbiI6IkZVQVgyeFpuNUV2TSIsImVtYWlsIjoibGltaXRlZC1zdGFmZi1zdGFuZGluZ0B0ZXN0ZXIuY29tIiwidHlwZSI6InJlZnJlc2giLCJ1c2VyX2lkIjoiVlhObGNqb3lOVEk9IiwiaXNfc3RhZmYiOnRydWUsImNzcmZUb2tlbiI6InQwMjlCQnV2Q3J4YUFTVkppek56dFdqaGFsdFduVGNJMGczY3dtRmdEb011WUxFTU1wWlRPd1Y3RHo3QkNDdmUifQ.V1P5YdfFfzMaNdgLCR_IwqHoVdYSFVFMEaDInoWiCJZB9LbKGkz5qZ0pB9ttuKmuRcLxbaYZ3Z0P6DNpsvPsZFrstuhSfJYDoze-OFLo7OwRkF_Wi1gHzQZsb_Sd3JYwCZStdYObMBI6DQrk6vsoVr3aycRIbguwVYwVTRBz6g-fgH1wVUu6ilQg8pJ_afUq0D3457VC3eOJkC2M7yWQuJ2a1YBVmi4eaNBZ5yhq1GmYfZ-7I0tf8nLpYL5O-Y63uVMcu3qPOkyw57xUy-QIcLA4P3BzI5G8FOOHX1BgTpyrSKhtcyr-b91MYGz3DRMo1I-3Ewm0LQZypZskqpAlNQ"
+        },
+        {
+          "name": "dashboard-installed-apps-snapshot",
+          "value": "[]"
         },
         {
           "name": "macaw-ui-theme",
