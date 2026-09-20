@@ -197,16 +197,18 @@ class ProductsPage extends BasePage {
     }
 
     async navigateToTestVariant() {
-        // await this.selectors.variantRowEditButton.last().waitFor({ state: 'visible' });
-        // const variantRows = await this.selectors.variantRowEditButton;
-        // const variantRowsCount = await variantRows.count();
+
+        await this.selectors.addVariantButton.waitFor({ state: 'visible' });
+        await this.selectors.addVariantButton.click();
+        await this.selectors.variantsList.waitFor({ state: 'visible' });
+        // const variantRowsCount = await this.page.getByTestId('row-action-button').count();
         // console.log('Variant row for pricing count is: ', variantRowsCount);
-        await this.page.getByTestId('row-action-button').last().waitFor({ state: 'visible' });
-        const variantRowsCount = await this.page.getByTestId('row-action-button').count();
-        console.log('Variant row for pricing count is: ', variantRowsCount);
-        await this.page.getByTestId('row-action-button').nth(variantRowsCount - 2).click();
+        // await this.page.getByTestId('row-action-button').nth(variantRowsCount - 2).click();
         // await this.page.pause();
-        await this.page.locator('[data-test-id="variants-list"]').waitFor({ state: 'visible' });
+        const variantRows = await this.page.locator('div[data-variant-id]');
+        const variantRowsCount = await variantRows.count();
+        await variantRows.nth(variantRowsCount - 2).click();
+        // await this.page.locator('[data-test-id="variants-list"]').waitFor({ state: 'visible' });
         const availableChannels = await this.page.locator('[data-test-id^="Channel-"]');
         const channelCount = await availableChannels.count();
         for (let i = 0; i < channelCount; i++) {
