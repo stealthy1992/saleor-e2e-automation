@@ -1,6 +1,7 @@
 const { test: customerTest, expect } = require('../../fixtures/customer');
 const { test, request: pwRequest } = require('@playwright/test');
 const CustomerPage = require('../../page-objects/CustomerPage');
+const LoginPage = require('../../page-objects/LoginPage');
 const { query } = require('../../utils/db-client');
 const { graphqlRequest } = require('../../utils/graphql-client');
 
@@ -228,16 +229,17 @@ customerTest.describe.serial('4.5 Customer Management UI', () => {
 
 
         test('**CUST-UI-016** `should hide or restrict Customer management for the limited-access (MANAGE_PRODUCTS-only) staff`', async ({ page }) => {
-            let customerPage;
+            let customerPage, loginPage;
             const limitedUser = {
                 email: "limited-staff-standing@tester.com",
                 password: "12345678"
             }
             customerPage = new CustomerPage(page);
+            loginPage = new LoginPage(page);
             await page.goto('dashboard');
             await customerPage.dismissAnnouncement();
             await customerPage.logout();
-            await customerPage.login(limitedUser.email, limitedUser.password);
+            await loginPage.login(limitedUser.email, limitedUser.password);
             await page.goto('customers');
             await customerPage.pageRestrictedWith404();
         })

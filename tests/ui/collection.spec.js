@@ -153,8 +153,9 @@ test.describe.serial('Collection Testing Suite', () => {
         await collectionPage.navigateToCollection('Summer Picks');
         await collectionPage.updateCollection(limitedStaffCollection);
         const [summerPicks] = await query(
-            `SELECT id FROM product_collection WHERE name = 'Summer Picks' LIMIT 1`
+            `SELECT id FROM product_collection WHERE name = $1 LIMIT 1`,[limitedStaffCollection.name]
         );
+        console.log('fetched collection is: ',summerPicks);
         const limitedStaffUpdateInfo = await query(
             'SELECT * FROM product_collection WHERE id = $1 LIMIT 1',
             [summerPicks.id]

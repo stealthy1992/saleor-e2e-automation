@@ -1,5 +1,6 @@
 const { test, expect } = require('../../fixtures/checkout');
 const OrderPage = require('../../page-objects/OrderPage');
+const LoginPage = require('../../page-objects/LoginPage');
 const { query } = require('../../utils/db-client');
 
 test.describe.serial('4.4 Order Management UI', () => {
@@ -56,11 +57,12 @@ test.describe.serial('4.4 Order Management UI', () => {
         await test.step('ORDER-UI-003 should display the correct line items matching order_orderline', async () => {
             await orderPage.navigateToOrderByNumber(detailOrder.orderNumber);
             lineItemsOnUI = await orderPage.fetchOrderLineItems();
-            console.log(lineItemsOnUI);
+            console.log('Line items on UI are: ',lineItemsOnUI);
             additionalOrderInfo = await orderPage.fetchAdditionalOrderDetails();
             console.log('additional info: ', additionalOrderInfo);
             orderUUID = await query('SELECT id FROM order_order WHERE number = $1 LIMIT 1', [detailOrder.orderNumber]);
             orderRow = await query('SELECT * FROM order_orderline WHERE order_id = $1 ORDER BY id ASC', [orderUUID[0].id]);
+            console.log('Line Item from DB are: ', orderRow);
             expect(lineItemsOnUI[0].Product.trim()).toBe(orderRow[0].product_name.trim());
             expect(lineItemsOnUI[0].SKU.trim()).toBe(orderRow[0].product_sku.trim());
         });
@@ -267,15 +269,17 @@ test.describe.serial('4.4 Order Management UI', () => {
     })
 
     test('H. RBAC (P1)', async ({ page }) => {
+        let loginPage;
         const limitedUser = {
             email: "limited-staff-standing@tester.com",
             password: "12345678"
         }
         await test.step('**ORDER-UI-023** `should hide or restrict Order management for the limited-access (MANAGE_PRODUCTS-only) staff`', async () => {
+            loginPage = new LoginPage(page);
             await page.goto('/dashboard');
             await orderPage.dismissAnnouncement();
             await orderPage.logout();
-            await orderPage.login(limitedUser.email, limitedUser.password);
+            await loginPage.login(limitedUser.email, limitedUser.password);
             await page.goto('orders');
             await orderPage.pageRestrictedWith404();
         })

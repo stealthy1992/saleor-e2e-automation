@@ -387,7 +387,7 @@ test.describe('This will test the entire login module', () => {
                 const postData = request.postDataJSON();
                 const response = await route.fetch();
                 const responseBody = await response.json();
-                
+                // console.log('Mutations for limited staff user is: ',responseBody);
 
                 // if (postData?.query?.includes('tokenCreate')) {
                 //     console.log(postData);
@@ -418,7 +418,7 @@ test.describe('This will test the entire login module', () => {
             expect(menuItemList).not.toContain('Command menu');
             expect(menuItemList).not.toContain('Playground');
             expect(menuItemList).not.toContain(`What's New`);
-            console.log(mePermissions);
+            // console.log(mePermissions);
             expect(mePermissions).not.toBeNull();
 
             const codes = mePermissions.map(p => p.code);
