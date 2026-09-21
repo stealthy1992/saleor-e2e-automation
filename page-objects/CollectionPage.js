@@ -160,6 +160,7 @@ class CollectionPage extends BasePage{
     }
 
     async deleteProductFromCollection(product) {
+        await this.selectors.productTableRows.first().waitFor({ state: 'visible' });
         const productCount = await this.selectors.productTableRows.count();
         console.log(`Product in this collection are ${productCount}`);
         for (let i = 0; i < productCount; i++) {

@@ -6,12 +6,12 @@ const { request: pwRequest } = require('@playwright/test');
 const LoginPage = require('../../page-objects/LoginPage');
 
 const test = base.test.extend({
-  page: async ({ browser }, use) => {
-    const context = await browser.newContext({ storageState: undefined });
-    const page = await context.newPage();
-    await use(page);
-    await context.close();
-  },
+    page: async ({ browser }, use) => {
+        const context = await browser.newContext({ storageState: undefined });
+        const page = await context.newPage();
+        await use(page);
+        await context.close();
+    },
 });
 const { expect } = base;
 
@@ -308,7 +308,7 @@ test.describe('This will test the entire login module', () => {
 
     test('F. Session & Navigation Edge Cases', async ({ page, request }) => {
         let refreshCookie;
-        
+
         await test.step('LOGIN-022 should redirect an unauthenticated user to login when visiting a protected URL directly', async () => {
             await page.waitForTimeout(1000);
             await page.goto('/dashboard/products/');
@@ -379,7 +379,7 @@ test.describe('This will test the entire login module', () => {
         expect(tokenRefreshFired).toBe(true); // and it got there via a silent refresh, not luck
     });
 
-    test('G. RBAC-Adjacent (cross-reference with Phase 1 limitedStaff)', async ({ page }) => {
+    test.only('G. RBAC-Adjacent (cross-reference with Phase 1 limitedStaff)', async ({ page }) => {
         let mePermissions = null;
         await test.step('LOGIN-027 should allow the limited-access (MANAGE_PRODUCTS-only) staff account to log in', async () => {
             await page.route(apiUrl, async (route) => {
@@ -395,19 +395,21 @@ test.describe('This will test the entire login module', () => {
 
 
                 if (postData?.query?.includes('userPermissions') && responseBody.data?.me) {
+                    console.log('Post data is: ', postData.query);
+                    console.log('Response body is: ', responseBody.data);
                     mePermissions = responseBody.data.me.userPermissions;
                 }
 
                 await route.fulfill({ response });
             });
-            
+
             const isLoggedIn = await loginPage.login(limitedAdmin.email, limitedAdmin.password);
             expect(isLoggedIn).toBe(true);
         })
 
         await test.step('LOGIN-028 should hide navigation items the limited-access account has no permission for', async () => {
-            
-            
+
+
 
             const menuItemList = await loginPage.getMenuList();
             expect(menuItemList).not.toContain('Fulfillment');

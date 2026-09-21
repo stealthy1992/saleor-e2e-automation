@@ -168,7 +168,7 @@ exports.test = productTest.extend({
                     throw new Error(`createOrder (checkoutCreate) failed: ${JSON.stringify(createData.checkoutCreate.errors)}`);
                 }
                 const checkout = createData.checkoutCreate.checkout;
-
+                console.log('Available shipping methods are: ',checkout.shippingMethods);
                 const shippingMethod = checkout.shippingMethods[0];
                 if (!shippingMethod) throw new Error(`createOrder: no shipping methods available for checkout ${checkout.id}`);
 
