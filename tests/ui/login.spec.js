@@ -379,7 +379,7 @@ test.describe('This will test the entire login module', () => {
         expect(tokenRefreshFired).toBe(true); // and it got there via a silent refresh, not luck
     });
 
-    test.only('G. RBAC-Adjacent (cross-reference with Phase 1 limitedStaff)', async ({ page }) => {
+    test('G. RBAC-Adjacent (cross-reference with Phase 1 limitedStaff)', async ({ page }) => {
         let mePermissions = null;
         await test.step('LOGIN-027 should allow the limited-access (MANAGE_PRODUCTS-only) staff account to log in', async () => {
             await page.route(apiUrl, async (route) => {
