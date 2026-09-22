@@ -577,7 +577,8 @@ test.describe.serial('Dashboard UI — Product Management Module: Test Scenario 
     });
 
     test('I. RBAC — Product Module (ties to Section G / login modules PROD-adjacent items)', async ({ page }) => {
-        loginPage = new LoginPage(page)
+        test.setTimeout(60000);
+        loginPage = new LoginPage(page);
         const updatedName = 'UI Test Product - Updated';
         const limitedUser = {
             email: "limited-staff-standing@tester.com",

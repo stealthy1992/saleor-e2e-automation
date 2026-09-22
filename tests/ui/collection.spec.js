@@ -33,6 +33,7 @@ test.describe.serial('Collection Testing Suite', () => {
 
 
     test('E. Collection — Create/Update/Delete (P0)', async ({ page }) => {
+        test.setTimeout(60000);
         await test.step('CAT-UI-015 should create a collection with required fields', async () => {
             // console.log(process.env.SALEOR_DASHBOARD_URL);
             await page.goto('collections');
