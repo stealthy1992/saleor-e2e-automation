@@ -2,8 +2,9 @@ require('dotenv').config();
 
 const base = require('@playwright/test');
 const { request: pwRequest } = require('@playwright/test');
-// const { test, expect } = require('@playwright/test');
+const { test: staffTest } = require('../../fixtures/staff');
 const LoginPage = require('../../page-objects/LoginPage');
+const { graphqlRequest } = require('../../utils/graphql-client');
 
 const test = base.test.extend({
     page: async ({ browser }, use) => {
@@ -15,18 +16,13 @@ const test = base.test.extend({
 });
 const { expect } = base;
 
-test.describe('This will test the entire login module', () => {
+test.describe.serial('This will test the entire login module', () => {
     let loginPage;
     const apiUrl = process.env.SALEOR_API_URL + '/graphql/';
     const admin = {
         email: process.env.ADMIN_EMAIL,
         password: process.env.ADMIN_PASSWORD
     }
-    const limitedAdmin = {
-        email: process.env.LIMITED_ACCESS_USER_EMAIL,
-        password: process.env.LIMITED_ACCESS_USER_PASSWORD
-    }
-
 
     test.beforeEach(async ({ page }) => {
         loginPage = new LoginPage(page);
@@ -56,27 +52,22 @@ test.describe('This will test the entire login module', () => {
     test('B. Field Validation (client-side, before any request fires)', async ({ page }) => {
         await test.step('LOGIN-004 should show a validation error when email is empty', async () => {
             const isErrorVisible = await loginPage.loginWithoutEmail(admin.password);
-            // console.log(isErrorVisible);
             expect(isErrorVisible).toBe(true);
         })
 
         await test.step('LOGIN-005 should show a validation error when password is empty', async () => {
             const isErrorVisible = await loginPage.loginWithoutPassword(admin.email);
-            // console.log(isErrorVisible);
             expect(isErrorVisible).toBe(true);
         })
 
         await test.step('LOGIN-006 should show a validation error when both fields are empty', async () => {
             const isErrorVisible = await loginPage.emptyLogin();
-            // console.log(isErrorVisible);
             expect(isErrorVisible).toBe(true);
         })
 
         await test.step('LOGIN-007 should show a validation error for a malformed email (no @, no domain)', async () => {
             const errorMessage = await loginPage.malformedLoginAttempt('someemail', '12345');
             await loginPage.assertLoginError('invalidCredentials');
-            // await loginPage.assertLoginError('rateLimited');
-            // expect(errorMessage.trim()).toBe('Your username and/or password are incorrect. Please try again.')
         })
 
         await test.step('LOGIN-008 should not fire a login request when client-side validation fails', async () => {
@@ -84,86 +75,60 @@ test.describe('This will test the entire login module', () => {
 
             await page.route('**/graphql/', async (route) => {
                 const request = route.request();
-                const postData = request.postDataJSON(); // parses the JSON body for you
+                const postData = request.postDataJSON();
 
-                // A single GraphQL request can technically batch multiple operations,
-                // but for this app it's one operation per call — check the query
-                // string for the mutation name rather than relying on operationName,
-                // since your own graphqlRequest client doesn't always set that field.
                 if (postData?.query?.includes('tokenCreate')) {
                     tokenCreateWasCalled = true;
                 }
 
-                await route.continue(); // always let the request through — this is an observer, not a blocker
-
-
+                await route.continue();
             });
 
             const isErrorVisible = await loginPage.emptyLogin();
-            // console.log(isErrorVisible);
             expect(isErrorVisible).toBe(true);
             await page.waitForTimeout(500);
             expect(tokenCreateWasCalled).toBe(false);
             await page.unroute('**/graphql/');
-
-
         })
     })
 
     test('C. Negative Credentials (server-side rejection)', async ({ page }) => {
 
         await test.step('LOGIN-009 should show an error for a valid email with wrong password', async () => {
-
             let tokenCreateMutationCalled = false;
 
             await page.route('**/graphql/', async (route) => {
                 const request = route.request();
-                const postData = request.postDataJSON(); // parses the JSON body for you
-                // console.log(postData)
-                // A single GraphQL request can technically batch multiple operations,
-                // but for this app it's one operation per call — check the query
-                // string for the mutation name rather than relying on operationName,
-                // since your own graphqlRequest client doesn't always set that field.
+                const postData = request.postDataJSON();
+
                 if (postData?.query?.includes('tokenCreate')) {
                     tokenCreateMutationCalled = true;
-                    // console.log(postData);
                 }
 
-                await route.continue(); // always let the request through — this is an observer, not a blocke
-
+                await route.continue();
             })
 
             await loginPage.malformedLoginAttempt(admin.email, '12345');
             await loginPage.assertLoginError('invalidCredentials');
-            // expect(errorMessage.trim()).toBe('Your username and/or password are incorrect. Please try again.')
             expect(tokenCreateMutationCalled).toBe(true);
             await page.unroute('**/graphql/');
-            // await page.waitForTimeout(5000);
         })
 
         await test.step('LOGIN-010 should show an error for a non-existent email & rate-limit error message should display', async () => {
-
             let tokenCreateMutationCalled = false;
 
             await page.route('**/graphql/', async (route) => {
                 const request = route.request();
-                const postData = request.postDataJSON(); // parses the JSON body for you
-                // console.log(postData)
-                // A single GraphQL request can technically batch multiple operations,
-                // but for this app it's one operation per call — check the query
-                // string for the mutation name rather than relying on operationName,
-                // since your own graphqlRequest client doesn't always set that field.
+                const postData = request.postDataJSON();
+
                 if (postData?.query?.includes('tokenCreate')) {
                     tokenCreateMutationCalled = true;
-                    // console.log(postData);
                 }
 
-                await route.continue(); // always let the request through — this is an observer, not a blocke
-
+                await route.continue();
             })
 
             const errorMessage = await loginPage.malformedLoginAttempt('admin@solception.com', '12345678');
-            // await loginPage.assertLoginError('rateLimited');
             await loginPage.assertLoginError('invalidCredentials');
             expect(tokenCreateMutationCalled).toBe(true);
             await page.unroute('**/graphql/');
@@ -172,29 +137,21 @@ test.describe('This will test the entire login module', () => {
         await test.step('LOGIN-011 should not reveal whether the email exists in the error message', async () => {
             const errorMessage = await loginPage.malformedLoginAttempt('blah@tester.com', '12345');
             expect(errorMessage).not.toMatch(/email|does|not|exist/);
-            // await loginPage.assertLoginError('rateLimited');
         })
 
         await test.step('LOGIN-012 should treat email as case-insensitive', async () => {
             let tokenCreateMutationCalled = false;
             await page.route('**/graphql/', async (route) => {
                 const request = route.request();
-                const postData = request.postDataJSON(); // parses the JSON body for you
-                console.log(postData)
-                // A single GraphQL request can technically batch multiple operations,
-                // but for this app it's one operation per call — check the query
-                // string for the mutation name rather than relying on operationName,
-                // since your own graphqlRequest client doesn't always set that field.
+                const postData = request.postDataJSON();
+
                 if (postData?.query?.includes('tokenCreate')) {
                     tokenCreateMutationCalled = true;
-                    console.log(postData);
                 }
 
-                await route.continue(); // always let the request through — this is an observer, not a blocke
-
+                await route.continue();
             })
 
-            // expect(tokenCreateMutationCalled).toBe(true);
             const isLoggedIn = await loginPage.login(admin.email.toUpperCase(), admin.password);
             expect(isLoggedIn).toBe(true);
             await page.unroute('**/graphql/');
@@ -204,7 +161,7 @@ test.describe('This will test the entire login module', () => {
     test('LOGIN-013 should display a rate-limit message after rapid repeated login attempts', async ({ page }) => {
         test.setTimeout(180000);
         let lastApiErrors = null;
-        let waitMs = 500; // fallback/default
+        let waitMs = 500;
 
         await page.route('**/graphql/', async (route) => {
             const request = route.request();
@@ -212,20 +169,15 @@ test.describe('This will test the entire login module', () => {
             const response = await route.fetch();
             const responseBody = await response.json();
 
-            // Only touch state for the mutation we actually care about
             if (postData?.query?.includes('tokenCreate')) {
                 lastApiErrors = responseBody.data?.tokenCreate?.errors ?? [];
-                console.log('Request:', JSON.stringify(postData.variables));
-                console.log('Response:', JSON.stringify(lastApiErrors, null, 2));
             }
 
-            // Fulfill FIRST — nothing after this should block on UI state
             await route.fulfill({ response });
         });
 
         for (let i = 0; i < 5; i++) {
             const messageText = await loginPage.malformedLoginAttempt('someemail', '12345');
-            console.log(messageText, ' -- ', new Date().toLocaleTimeString('en-GB', { hour12: false }));
 
             if (lastApiErrors?.[0]) {
                 loginPage.assertErrorPairFromData(lastApiErrors[0], messageText);
@@ -241,13 +193,11 @@ test.describe('This will test the entire login module', () => {
         }
 
         await page.unroute('**/graphql/');
-
     })
 
     test('LOGIN-015 should allow login to succeed again once the rate-limit window clears', async ({ page }) => {
         let lastApiErrors = null;
-        let waitMs = 500; // fallback/default
-        let gateLifted = false;
+        let waitMs = 500;
 
         await page.route('**/graphql/', async (route) => {
             const request = route.request();
@@ -255,38 +205,20 @@ test.describe('This will test the entire login module', () => {
             const response = await route.fetch();
             const responseBody = await response.json();
 
-            // Only touch state for the mutation we actually care about
             if (postData?.query?.includes('tokenCreate')) {
                 lastApiErrors = responseBody.data?.tokenCreate?.errors ?? [];
-                // console.log('Request:', JSON.stringify(postData.variables));
-                // console.log('Response:', JSON.stringify(lastApiErrors, null, 2));
             }
 
-            // Fulfill FIRST — nothing after this should block on UI state
             await route.fulfill({ response });
         });
 
         for (let i = 0; i < 5; i++) {
             const messageText = await loginPage.malformedLoginAttempt('someemail', '12345');
             if (waitMs !== 500) {
-                console.log(`Login attempt gate lifted at ${i + 1} iteration at ${new Date(Date.now()).toISOString().split(' ')[0]} with the message ${lastApiErrors[0]?.message}`)
                 loginPage.assertErrorPairFromData(lastApiErrors[0], messageText);
                 expect(messageText.trim()).toBe('Your username and/or password are incorrect. Please try again.');
                 break;
             }
-            // else {
-            //     if (i === 0) {
-            //         console.log(`Login attempt gate not yet applied at ${i + 1} attempt and message is ${lastApiErrors[0]?.message}`);
-            //         loginPage.assertErrorPairFromData(lastApiErrors[0], messageText);
-            //         expect(messageText.trim()).toBe('Your username and/or password are incorrect. Please try again.');
-            //     }
-            //     else {
-            //         console.log(`Login attempt gate closed at ${i + 1} iteration with the message ${lastApiErrors[0]?.message}`)
-            //         loginPage.assertErrorPairFromData(lastApiErrors[0], messageText);
-            //         expect(messageText.trim()).toBe('Please wait a moment before trying again.');
-            //     }
-
-            // }
 
             if (lastApiErrors?.[0]) {
                 loginPage.assertErrorPairFromData(lastApiErrors[0], messageText);
@@ -296,8 +228,6 @@ test.describe('This will test the entire login module', () => {
             if (delayError) {
                 const blockedUntil = loginPage.extractBlockedUntil(delayError.message);
                 waitMs = blockedUntil.getTime() - Date.now() + 250;
-                console.log(`Delayed time set to  ${waitMs} at ${i + 1} iteration`);
-                // gateLifted = true;
             }
 
             await new Promise(r => setTimeout(r, waitMs));
@@ -324,7 +254,6 @@ test.describe('This will test the entire login module', () => {
             const isRedirected = await loginPage.redirectionToLoginPage();
             expect(isRedirected).toBe(false)
             expect(refreshCookie).toBeDefined();
-            // await expect(page).toHaveURL(/home/);
         })
 
         await test.step('LOGIN-024 should persist the session across a full page reload', async () => {
@@ -334,7 +263,6 @@ test.describe('This will test the entire login module', () => {
         })
 
         await test.step('LOGIN-025 should clear the session and redirect to login after logout', async () => {
-
             await loginPage.logout();
             const apiCtx = await pwRequest.newContext({ baseURL: process.env.SALEOR_API_URL });
             const response = await apiCtx.post('/graphql/', {
@@ -353,11 +281,9 @@ test.describe('This will test the entire login module', () => {
             const body = await response.json();
             await apiCtx.dispose();
             console.log('tokenRefresh after logout result:', JSON.stringify(body));
-
         })
     })
 
-    // test.slow(); // this test genuinely takes 5+ minutes — flag it so Playwright doesn't apply a short default timeout
     test('access token silently refreshes before its TTL expires, without forcing re-login', async ({ page }) => {
         test.setTimeout(7 * 60 * 1000);
         await loginPage.login(admin.email, admin.password);
@@ -369,47 +295,27 @@ test.describe('This will test the entire login module', () => {
             await route.continue();
         });
 
-        await page.waitForTimeout(5.5 * 60 * 1000); // past the 5-minute access TTL
+        await page.waitForTimeout(5.5 * 60 * 1000);
 
-        // Trigger any authenticated action — e.g. navigate to another screen
         await page.goto('/dashboard/products/');
 
         const isRedirected = await loginPage.redirectionToLoginPage();
-        expect(isRedirected).toBe(false); // still logged in
-        expect(tokenRefreshFired).toBe(true); // and it got there via a silent refresh, not luck
+        expect(isRedirected).toBe(false);
+        expect(tokenRefreshFired).toBe(true);
     });
 
     test('G. RBAC-Adjacent (cross-reference with Phase 1 limitedStaff)', async ({ page }) => {
-        let mePermissions = null;
+        const limitedAdmin = {
+            email: process.env.LIMITED_ACCESS_USER_EMAIL,
+            password: process.env.LIMITED_ACCESS_USER_PASSWORD
+        }
+
         await test.step('LOGIN-027 should allow the limited-access (MANAGE_PRODUCTS-only) staff account to log in', async () => {
-            await page.route(apiUrl, async (route) => {
-                const request = route.request();
-                const postData = request.postDataJSON();
-                const response = await route.fetch();
-                const responseBody = await response.json();
-                // console.log('Mutations for limited staff user is: ',responseBody);
-
-                // if (postData?.query?.includes('tokenCreate')) {
-                //     console.log(postData);
-                // }
-
-
-                if (postData?.query?.includes('userPermissions') && responseBody.data?.me) {
-                    console.log('Post data is: ', postData.query);
-                    console.log('Response body is: ', responseBody.data);
-                    mePermissions = responseBody.data.me.userPermissions;
-                }
-
-                await route.fulfill({ response });
-            });
-
             const isLoggedIn = await loginPage.login(limitedAdmin.email, limitedAdmin.password);
             expect(isLoggedIn).toBe(true);
         })
 
         await test.step('LOGIN-028 should hide navigation items the limited-access account has no permission for', async () => {
-
-
 
             const menuItemList = await loginPage.getMenuList();
             expect(menuItemList).not.toContain('Fulfillment');
@@ -420,16 +326,27 @@ test.describe('This will test the entire login module', () => {
             expect(menuItemList).not.toContain('Command menu');
             expect(menuItemList).not.toContain('Playground');
             expect(menuItemList).not.toContain(`What's New`);
-            // console.log(mePermissions);
-            expect(mePermissions).not.toBeNull();
 
-            const codes = mePermissions.map(p => p.code);
-            expect(codes).toEqual(['MANAGE_PRODUCTS']);
-
+            // const isLoggedIn = await loginPage.login(limitedAdmin.email, limitedAdmin.password);
+            // expect(isLoggedIn).toBe(true);
             await page.goto('/dashboard/discounts/sales');
             await loginPage.pageRestrictedWith404();
-            // await page.unroute('**/graphql/');
         })
     })
 
+    // Moved inside the serial block — this now inherits ordering (runs only after
+    // every test above completes) and runs on the same worker, which also
+    // eliminates the risk of concurrent tokenCreate calls tripping shared
+    // rate-limit state across workers.
+    staffTest('H. Verifying limited staff has MANAGE_PRODUCTS in permissions array', async ({ limitedStaffToken }) => {
+
+        let mePermissions = null;
+        const ctx = await pwRequest.newContext({ baseURL: process.env.SALEOR_API_URL });
+        const { data } = await graphqlRequest(ctx, `
+                query Me { me { userPermissions { code name } } }
+            `, {}, limitedStaffToken);
+        mePermissions = data.me.userPermissions;
+        const codes = mePermissions.map(p => p.code);
+        expect(codes).toEqual(['MANAGE_PRODUCTS']);
+    })
 })

@@ -107,21 +107,22 @@ exports.test = productTest.extend({
             async function resolveVariantId(productName) {
                 const { data } = await graphqlRequest(ctx, `
                     query FindVariant($filter: ProductFilterInput!) {
-                        products(first: 1, channel: "default-channel", filter: $filter) {
+                        products(first: 10, channel: "default-channel", filter: $filter) {
                             edges { node { id name variants { id name quantityAvailable } } }
                         }
                     }
                 `, { filter: { search: productName } });
-                const product = data.products.edges[0]?.node;
+
+                const candidates = data.products.edges.map(e => e.node);
+                const product =
+                    candidates.find(p => p.name.toLowerCase() === productName.toLowerCase()) ??
+                    candidates.find(p => p.name.toLowerCase().includes(productName.toLowerCase()));
+
                 if (!product) throw new Error(`createOrder: no product found matching "${productName}"`);
-                // The GraphQL `search` filter is fuzzy/relevance-ranked, not exact —
-                // it can silently return a different product than intended if the
-                // catalog doesn't have one literally named `productName`. Fail here,
-                // at resolution time, instead of downstream when partial-fulfillment
-                // matching mysteriously finds zero lines for a "successfully" created order.
-                if (!product.name.toLowerCase().includes(productName.toLowerCase())) {
-                    throw new Error(`createOrder: search for "${productName}" resolved to a different product: "${product.name}" (id ${product.id}). Check the catalog for the exact product name.`);
+                if (product.name.toLowerCase() !== productName.toLowerCase()) {
+                    console.warn(`createOrder: "${productName}" had no exact match, falling back to "${product.name}" (id ${product.id})`);
                 }
+
                 const variant = product.variants.find(v => v.quantityAvailable > 0);
                 if (!variant) throw new Error(`createOrder: product "${productName}" has no variant with available stock`);
                 return variant.id;
@@ -168,7 +169,7 @@ exports.test = productTest.extend({
                     throw new Error(`createOrder (checkoutCreate) failed: ${JSON.stringify(createData.checkoutCreate.errors)}`);
                 }
                 const checkout = createData.checkoutCreate.checkout;
-                console.log('Available shipping methods are: ',checkout.shippingMethods);
+                console.log('Available shipping methods are: ', checkout.shippingMethods);
                 const shippingMethod = checkout.shippingMethods[0];
                 if (!shippingMethod) throw new Error(`createOrder: no shipping methods available for checkout ${checkout.id}`);
 
@@ -215,7 +216,7 @@ exports.test = productTest.extend({
                 createdOrderIds.push(order.id);
                 // console.log('Órder is: ',order);
                 if (partialFulfillmentProductNames.length) {
-                    console.log('Partial: ',partialFulfillmentProductNames);
+                    console.log('Partial: ', partialFulfillmentProductNames);
                     const linesToFulfill = order.lines.filter(line =>
                         partialFulfillmentProductNames.some(name => line.productName.toLowerCase().includes(name.toLowerCase()))
                     );

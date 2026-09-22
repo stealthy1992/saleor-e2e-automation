@@ -2,6 +2,7 @@ const { test, expect } = require('../../fixtures/auth');
 const { graphqlRequest } = require('../../utils/graphql-client');
 const pollForConfirmationEmail = require('../../utils/confirmationToken');
 const { query } = require('../../utils/db-client');
+const { request: pwRequest } = require('@playwright/test');
 
 test.describe.serial('This suite will test limited-access user creation and permissions', () => {
     let staffId, limitedStaffToken, productId, data;
@@ -75,7 +76,7 @@ test.describe.serial('This suite will test limited-access user creation and perm
             }
         }, staffToken);
 
-        console.log('Permission group result is: ',data.permissionGroupCreate.errors);
+        console.log('Permission group result is: ', data.permissionGroupCreate.errors);
     })
 
     test('This will set password for the limited-access staff', async ({ request }) => {
@@ -191,32 +192,20 @@ test.describe.serial('This suite will test limited-access user creation and perm
         ).rejects.toThrow(/MANAGE_CHANNELS/i);
     })
 
-    test('This will request deletion token to delete limited-access user', async ({ request }) => {
+    test('This will request deletion token to delete limited-access user', async ({ staffToken }) => {
 
-        const { data: reqData } = await graphqlRequest(request, `
-            mutation RequestDeletion($channel: String, $redirectUrl: String!) {
-                accountRequestDeletion(channel: $channel, redirectUrl: $redirectUrl) {
-                errors { field message code }
+        const ctx = await pwRequest.newContext({ baseURL: process.env.SALEOR_API_URL });
+        // const limitedUserIdRow = (await query('SELECT * FROM account_user WHERE email = $1', [limitedStaff.email]))[0];
+        // console.log('Limited user row is: ', limitedUserIdRow);
+        // const graphqlId = Buffer.from(`User:${limitedStaff.id}`).toString('base64');
+        const { data: delData } = await graphqlRequest(ctx, `
+            mutation StaffDelete($id: ID!) {
+                staffDelete(id: $id) {
+                    errors { field message code }
                 }
             }
-            `, { channel: "default-channel", redirectUrl: "http://localhost:9000/delete" }, limitedStaffToken);
-
-        console.log('Account request deletion result is: ', data);
-        expect(reqData.accountRequestDeletion.errors).toEqual([]);
-
-        const { token: deletionToken } = await pollForConfirmationEmail(limitedStaff.email);
-        console.log('Deletion token is: ', deletionToken);
-        // const { response, data } = await graphqlRequest(request, mutation );
-        // console.log(data);
-        const { data: delData } = await graphqlRequest(request, `
-            mutation DeleteAccount($token: String!) {
-                accountDelete(token: $token) {
-                errors { field message code }
-                }
-            }
-            `, { token: deletionToken }, limitedStaffToken);
-
-        expect(delData.accountDelete.errors).toEqual([]);
+        `, { id: staffId }, staffToken); // admin token, not limitedStaffToken
+        expect(delData.staffDelete.errors).toEqual([]);
         const row = await query('SELECT * FROM account_user WHERE email = $1', [limitedStaff.email]);
         expect(row).toEqual([]);
 

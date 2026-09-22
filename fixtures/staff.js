@@ -25,7 +25,7 @@ exports.test = authTest.extend({
                 input: {
                     addPermissions: ["MANAGE_PRODUCTS"],
                     addChannels: ["Q2hhbm5lbDox"],
-                    name: "New Custom Group",
+                    name: `Custom Group-${Date.now()}`,
                     restrictedAccessToChannels: true
                 }
             }, staffToken);
