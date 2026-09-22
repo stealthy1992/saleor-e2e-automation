@@ -7,7 +7,7 @@ test.describe.serial('4.4 Order Management UI', () => {
     let orderPage;
     let fulfillmentOrder, detailOrder, noteOrder, blockedDeleteOrder;
     let orderIdOnUI, lineItemsOnUI, paymentUUID;
-    const productsToBeFulfilled = ['Monospace Tee', `Paul's Balance 420`, 'Blue Hoodie'];
+    const productsToBeFulfilled = ['Reversed Monotype Tee', `Paul's Balance 420`, 'Blue Hoodie'];
     const chargeMap = s => ({ 'Fully charged': 'full', 'Not fully charged': 'none', 'Fully paid': 'full', 'Channel-USD': 1, 'Channel-PLN': 2 }[s]);
     const paymentMap = s => ({ 'Fully charged': 'fully-charged' }[s]);
 
@@ -21,13 +21,13 @@ test.describe.serial('4.4 Order Management UI', () => {
             email: 'edward.cook@example.com', // matches the existing email-filter test below
         });
         noteOrder = await createOrder({
-            lineItems: [{ name: 'Monospace Tee', quantity: 1 }],
+            lineItems: [{ name: 'Reversed Monotype Tee', quantity: 1 }],
             email: `order-note-${Date.now()}@tester.com`,
         });
         blockedDeleteOrder = await createOrder({
             lineItems: productsToBeFulfilled.map(name => ({ name, quantity: 1 })),
             email: `order-blocked-${Date.now()}@tester.com`,
-            partialFulfillmentProductNames: ['Monospace Tee'], // one of three lines → order lands PARTIALLY_FULFILLED
+            partialFulfillmentProductNames: ['Reversed Monotype Tee'], // one of three lines → order lands PARTIALLY_FULFILLED
         });
     });
 
