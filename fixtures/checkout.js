@@ -1,7 +1,7 @@
 const { test: productTest } = require('./customer'); // chains onto customer.js -> auth.js 
 const { request: pwRequest } = require('@playwright/test');
 const { graphqlRequest } = require('../utils/graphql-client');
-const { pool } = require('../utils/db-client'); // adjust path if db-client.js lives elsewhere
+const { pool, query } = require('../utils/db-client'); // adjust path if db-client.js lives elsewhere
 
 const DEFAULT_WAREHOUSE_ID = 'V2FyZWhvdXNlOjhlYjMxODE0LTNmYTgtNDA5My1hMGZkLTFiZmU1YmQ3NzQxOA==';
 
@@ -105,23 +105,29 @@ exports.test = productTest.extend({
             const createdOrderIds = [];
 
             async function resolveVariantId(productName) {
+                // GraphQL's `search` filter depends on product_product.search_vector, which
+                // is only populated by a Celery Beat task (documented elsewhere as
+                // unreliable) or a manual reindex trigger. On a fresh CI seed, that index
+                // hasn't been built yet, so `search` can return nothing — even for a
+                // product that genuinely exists — until something reindexes it. Look the
+                // product up by exact name directly in Postgres instead, bypassing the
+                // search index entirely.
+                const rows = await query('SELECT id FROM product_product WHERE name = $1 LIMIT 1', [productName]);
+                if (!rows.length) throw new Error(`createOrder: no product found matching "${productName}"`);
+                const globalProductId = Buffer.from(`Product:${rows[0].id}`).toString('base64');
+
                 const { data } = await graphqlRequest(ctx, `
-                    query FindVariant($filter: ProductFilterInput!) {
-                        products(first: 10, channel: "default-channel", filter: $filter) {
-                            edges { node { id name variants { id name quantityAvailable } } }
+                    query ProductVariants($id: ID!, $channel: String!) {
+                        product(id: $id, channel: $channel) {
+                            id
+                            name
+                            variants { id name quantityAvailable }
                         }
                     }
-                `, { filter: { search: productName } });
+                `, { id: globalProductId, channel: "default-channel" });
 
-                const candidates = data.products.edges.map(e => e.node);
-                const product =
-                    candidates.find(p => p.name.toLowerCase() === productName.toLowerCase()) ??
-                    candidates.find(p => p.name.toLowerCase().includes(productName.toLowerCase()));
-
-                if (!product) throw new Error(`createOrder: no product found matching "${productName}"`);
-                if (product.name.toLowerCase() !== productName.toLowerCase()) {
-                    console.warn(`createOrder: "${productName}" had no exact match, falling back to "${product.name}" (id ${product.id})`);
-                }
+                const product = data.product;
+                if (!product) throw new Error(`createOrder: product "${productName}" (db id ${rows[0].id}) not returned via GraphQL — check its channel listing`);
 
                 const variant = product.variants.find(v => v.quantityAvailable > 0);
                 if (!variant) throw new Error(`createOrder: product "${productName}" has no variant with available stock`);
