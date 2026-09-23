@@ -55,7 +55,7 @@ test.describe('Product pagination', () => {
         console.log('firstRun contents:', retrievedProducts);
     });
 
-    test.skip('This will get next 15 products and the cursor of 30th product', async ({ request }) => {
+    test('This will get next 15 products and the cursor of 30th product', async ({ request }) => {
         // Guard clause: fail fast with a clear message if test 1 didn't run
         // or didn't produce a cursor, instead of silently querying with after: null.
         expect(cursorAfterFirst15, 'cursorAfterFirst15 was not set — did the first test run before this one?').not.toBeNull();
@@ -100,7 +100,7 @@ test.describe('Product pagination', () => {
         console.log('secondRun contents:', retrievedProducts);
     });
 
-    test.skip('This will get last 2 products and the cursor of 32nd product', async ({ request }) => {
+    test('This will get last 2 products and the cursor of 32nd product', async ({ request }) => {
         expect(cursorAfterNext15, 'cursorAfterNext15 was not set — did the second test run before this one?').not.toBeNull();
  
         const query = `
