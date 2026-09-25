@@ -1,0 +1,199 @@
+{
+  "title": "Saleor Dashboard — k6 Performance",
+  "uid": "saleor-k6-perf",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "scenario",
+        "type": "query",
+        "datasource": { "type": "influxdb", "uid": "InfluxDB-k6" },
+        "query": "SHOW TAG VALUES FROM \"http_req_duration\" WITH KEY = \"scenario\"",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Virtual Users (VUs)",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "influxdb", "uid": "InfluxDB-k6" },
+      "targets": [
+        {
+          "query": "SELECT mean(\"value\") FROM \"vus\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "resultFormat": "time_series"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Request Duration — p95 by scenario (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "influxdb", "uid": "InfluxDB-k6" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 500 }
+            ]
+          },
+          "custom": { "thresholdsStyle": { "mode": "line" } }
+        }
+      },
+      "targets": [
+        {
+          "query": "SELECT percentile(\"value\", 95) FROM \"http_req_duration\" WHERE (\"scenario\" =~ /^$scenario$/) AND \"name\" = 'graphql-mutation' AND $timeFilter GROUP BY time($__interval), \"scenario\" fill(null)",
+          "rawQuery": true,
+          "resultFormat": "time_series"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Error Rate (%) — http_req_failed",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 7 },
+      "datasource": { "type": "influxdb", "uid": "InfluxDB-k6" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "query": "SELECT mean(\"value\") * 100 FROM \"http_req_failed\" WHERE \"name\" = 'graphql-mutation' AND $timeFilter GROUP BY time($__interval) fill(0)",
+          "rawQuery": true,
+          "resultFormat": "time_series"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Throughput — requests/sec",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 7 },
+      "datasource": { "type": "influxdb", "uid": "InfluxDB-k6" },
+      "targets": [
+        {
+          "query": "SELECT count(\"value\") FROM \"http_reqs\" WHERE \"name\" = 'graphql-mutation' AND $timeFilter GROUP BY time($__interval) fill(0)",
+          "rawQuery": true,
+          "resultFormat": "time_series"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Checks — pass/fail rate by check name",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
+      "datasource": { "type": "influxdb", "uid": "InfluxDB-k6" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1, "min": 0 } },
+      "targets": [
+        {
+          "query": "SELECT mean(\"value\") FROM \"checks\" WHERE $timeFilter GROUP BY time($__interval), \"check\" fill(previous)",
+          "rawQuery": true,
+          "resultFormat": "time_series"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "p95 Latency vs 500ms SLA (stat)",
+      "type": "stat",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 22 },
+      "datasource": { "type": "influxdb", "uid": "InfluxDB-k6" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 500 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "query": "SELECT percentile(\"value\", 95) FROM \"http_req_duration\" WHERE \"name\" = 'graphql-mutation' AND $timeFilter",
+          "rawQuery": true,
+          "resultFormat": "time_series"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Error Rate vs 1% SLA (stat)",
+      "type": "stat",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 22 },
+      "datasource": { "type": "influxdb", "uid": "InfluxDB-k6" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "query": "SELECT mean(\"value\") * 100 FROM \"http_req_failed\" WHERE \"name\" = 'graphql-mutation' AND $timeFilter",
+          "rawQuery": true,
+          "resultFormat": "time_series"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Business-Level Outcomes (mutation rejected != transport failed)",
+      "type": "stat",
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 29 },
+      "datasource": { "type": "influxdb", "uid": "InfluxDB-k6" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byFrameRefID", "options": "rejected" },
+            "properties": [{ "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 1 }] } }]
+          }
+        ]
+      },
+      "targets": [
+        { "refId": "variant_ok", "query": "SELECT sum(\"value\") FROM \"variant_created_success\" WHERE $timeFilter", "rawQuery": true, "resultFormat": "time_series" },
+        { "refId": "variant_rejected", "query": "SELECT sum(\"value\") FROM \"variant_created_rejected\" WHERE $timeFilter", "rawQuery": true, "resultFormat": "time_series" },
+        { "refId": "refund_ok", "query": "SELECT sum(\"value\") FROM \"refund_succeeded\" WHERE $timeFilter", "rawQuery": true, "resultFormat": "time_series" },
+        { "refId": "refund_rejected", "query": "SELECT sum(\"value\") FROM \"refund_rejected\" WHERE $timeFilter", "rawQuery": true, "resultFormat": "time_series" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+# docker-compose.perf.yml
+#
+# The k6 + Grafana performance stack — separate from your Saleor
+# application stack (saleor-platform/docker-compose.yml) on purpose.
+#
+# This stack is meant to be LONG-LIVED: bring it up once and leave it
+# running. Unlike the Saleor stack (which Jenkins tears down after every
+# build), InfluxDB accumulates historical run data across builds, and
+# Grafana dashboards are only useful if that history persists. Tearing
+# this down post-build would wipe your trend lines every single run.
+#
+# Usage:
+#   docker compose -f docker-compose.perf.yml up -d
+#   docker compose -f docker-compose.perf.yml down        # stop, keep data
+#   docker compose -f docker-compose.perf.yml down -v     # stop, wipe data
+
+services:
+  influxdb:
+    image: influxdb:1.8
+    container_name: k6-influxdb
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    environment:
+      INFLUXDB_DB: k6
+      INFLUXDB_HTTP_LOG_ENABLED: "false"
+    volumes:
+      - influxdb-data:/var/lib/influxdb
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: k6-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Local-only dashboard, so anonymous viewer access is fine.
+      # Tighten this if the machine is ever reachable off localhost.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
+      GF_SECURITY_ADMIN_PASSWORD: "admin"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      influxdb:
+        condition: service_healthy
+
+volumes:
+  influxdb-data:
+  grafana-data:
