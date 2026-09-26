@@ -114,14 +114,41 @@ export function teardown(data) {
   // never attempts to delete something that was rejected and doesn't exist.
   if (!data.createdVariantIds || data.createdVariantIds.length === 0) return;
 
-  graphqlRequest(
-    data.baseUrl,
-    PRODUCT_VARIANT_BULK_DELETE,
-    { ids: data.createdVariantIds },
-    data.token,
-    'productVariantBulkDelete-teardown',
-    'productVariantBulkDelete',
-    'graphql-setup'
+  // Saleor's bulk mutations reject the ENTIRE call, all-or-nothing, once a
+  // batch exceeds its configured size cap — a run producing more variants
+  // than that cap would silently leave every one of them undeleted. Chunk
+  // into batches of 50 and check/log each one explicitly, instead of
+  // firing a single unchecked call and hoping.
+  const BATCH_SIZE = 50;
+  let deletedCount = 0;
+  let failedBatches = 0;
+
+  for (let i = 0; i < data.createdVariantIds.length; i += BATCH_SIZE) {
+    const batch = data.createdVariantIds.slice(i, i + BATCH_SIZE);
+    const result = graphqlRequest(
+      data.baseUrl,
+      PRODUCT_VARIANT_BULK_DELETE,
+      { ids: batch },
+      data.token,
+      'productVariantBulkDelete-teardown',
+      'productVariantBulkDelete',
+      'graphql-setup'
+    );
+
+    if (result.succeeded) {
+      deletedCount += result.body?.data?.productVariantBulkDelete?.count ?? batch.length;
+    } else {
+      failedBatches++;
+      console.error(
+        `[teardown] batch delete failed for ${batch.length} variant(s) (batch starting at index ${i}): ` +
+        JSON.stringify(result.businessErrors || result.body)
+      );
+    }
+  }
+
+  console.log(
+    `[teardown] deleted ${deletedCount}/${data.createdVariantIds.length} variants` +
+    (failedBatches ? ` — ${failedBatches} batch(es) FAILED, see errors above` : '')
   );
 }
 

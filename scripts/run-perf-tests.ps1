@@ -1,7 +1,7 @@
-﻿# scripts/run-perf-tests.ps1
+# scripts/run-perf-tests.ps1
 #
 # One-command local run: brings up the InfluxDB+Grafana stack if it's not
-# already running, runs both k6 scenarios (writing to InfluxDB for the
+# already running, runs all three k6 scenarios (writing to InfluxDB for the
 # live Grafana dashboard AND to a standalone HTML report per scenario),
 # then opens the Grafana dashboard and only the report(s) this run
 # actually produced.
@@ -9,19 +9,22 @@
 # Usage:
 #   .\scripts\run-perf-tests.ps1
 #   .\scripts\run-perf-tests.ps1 -TestProductId "..." -RefundOnly
+#   .\scripts\run-perf-tests.ps1 -CheckoutOnly
 #
 # Prereqs: k6 on PATH, Docker Desktop running, SALEOR_ADMIN_EMAIL /
 # SALEOR_ADMIN_PASSWORD set as env vars. TEST_PRODUCT_ID is required
-# unless -RefundOnly. TEST_CHECKOUT_VARIANT_ID is required unless
-# -VariantOnly (order-refund.js seeds its own orders against this variant
-# via guest checkout - see that file's header comment for why).
+# unless -RefundOnly or -CheckoutOnly. TEST_CHECKOUT_VARIANT_ID is
+# required unless -VariantOnly — both order-refund.js AND
+# checkout-order-flow.js seed orders against this same variant via guest
+# checkout (see each file's header comment).
 
 param(
     [string]$TestProductId = $env:TEST_PRODUCT_ID,
     [string]$TestCheckoutVariantId = $env:TEST_CHECKOUT_VARIANT_ID,
     [string]$SaleorApiUrl = "http://localhost:8000/graphql/",
     [switch]$VariantOnly,
-    [switch]$RefundOnly
+    [switch]$RefundOnly,
+    [switch]$CheckoutOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -52,24 +55,31 @@ if (-not $ready) {
     exit 1
 }
 
-# --- 2. Validate required inputs ------------------------------------------
+# --- 2. Resolve which scenarios this run actually executes -----------------
+# Each -XOnly switch means "run just that one" — so it implies skipping
+# the other two, not just the switch's own opposite number.
+$runVariant  = -not $RefundOnly -and -not $CheckoutOnly
+$runRefund   = -not $VariantOnly -and -not $CheckoutOnly
+$runCheckout = -not $VariantOnly -and -not $RefundOnly
+
+# --- 3. Validate required inputs ------------------------------------------
 if (-not $env:SALEOR_ADMIN_EMAIL -or -not $env:SALEOR_ADMIN_PASSWORD) {
     Write-Host "SALEOR_ADMIN_EMAIL / SALEOR_ADMIN_PASSWORD env vars are required." -ForegroundColor Red
     exit 1
 }
-if (-not $RefundOnly -and -not $TestProductId) {
+if ($runVariant -and -not $TestProductId) {
     Write-Host "TEST_PRODUCT_ID is required for the variant-creation scenario (pass -TestProductId or set TEST_PRODUCT_ID)." -ForegroundColor Red
     exit 1
 }
-if (-not $VariantOnly -and -not $TestCheckoutVariantId) {
-    Write-Host "TEST_CHECKOUT_VARIANT_ID is required for the order-refund scenario (pass -TestCheckoutVariantId or set TEST_CHECKOUT_VARIANT_ID)." -ForegroundColor Red
+if (($runRefund -or $runCheckout) -and -not $TestCheckoutVariantId) {
+    Write-Host "TEST_CHECKOUT_VARIANT_ID is required for the order-refund and checkout-order-flow scenarios (pass -TestCheckoutVariantId or set TEST_CHECKOUT_VARIANT_ID)." -ForegroundColor Red
     exit 1
 }
 
-# --- 3. Run scenarios -------------------------------------------------------
+# --- 4. Run scenarios -------------------------------------------------------
 $runStart = Get-Date
 
-if (-not $RefundOnly) {
+if ($runVariant) {
     Write-Host "`nRunning: product-variant-creation" -ForegroundColor Green
     k6 run tests/k6/scenarios/product-variant-creation.js `
         --out influxdb=http://localhost:8086/k6 `
@@ -79,7 +89,7 @@ if (-not $RefundOnly) {
         -e TEST_PRODUCT_ID=$TestProductId
 }
 
-if (-not $VariantOnly) {
+if ($runRefund) {
     Write-Host "`nRunning: order-refund" -ForegroundColor Green
     k6 run tests/k6/scenarios/order-refund.js `
         --out influxdb=http://localhost:8086/k6 `
@@ -89,7 +99,15 @@ if (-not $VariantOnly) {
         -e TEST_CHECKOUT_VARIANT_ID=$TestCheckoutVariantId
 }
 
-# --- 4. Open results --------------------------------------------------------
+if ($runCheckout) {
+    Write-Host "`nRunning: checkout-order-flow" -ForegroundColor Green
+    k6 run tests/k6/scenarios/checkout-order-flow.js `
+        --out influxdb=http://localhost:8086/k6 `
+        -e SALEOR_API_URL=$SaleorApiUrl `
+        -e TEST_CHECKOUT_VARIANT_ID=$TestCheckoutVariantId
+}
+
+# --- 5. Open results --------------------------------------------------------
 Write-Host "`nOpening Grafana dashboard + this run's HTML report(s)..." -ForegroundColor Cyan
 Start-Process "http://localhost:3000/d/saleor-k6-perf"
 
