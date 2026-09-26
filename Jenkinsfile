@@ -8,8 +8,8 @@ pipeline {
     parameters {
         // TEST_PRODUCT_ID: id of a product reserved for perf runs — see
         // tests/k6/scenarios/product-variant-creation.js header comment.
-        string(name: 'TEST_PRODUCT_ID', defaultValue: 'UHJvZHVjdDoxNTI=', description: 'Product ID reserved for k6 variant-creation load test (required)')
-        string(name: 'TEST_CHECKOUT_VARIANT_ID', defaultValue: 'UHJvZHVjdFZhcmlhbnQ6Mzg0', description: 'Variant ID with stock, used by k6 to seed its own orders for the refund load test (required)')
+        string(name: 'TEST_PRODUCT_ID', defaultValue: '', description: 'Product ID reserved for k6 variant-creation load test (required)')
+        string(name: 'TEST_CHECKOUT_VARIANT_ID', defaultValue: '', description: 'Variant ID with stock, used by k6 to seed its own orders for the refund load test (required)')
     }
 
     environment {
