@@ -1,4 +1,4 @@
-# scripts/run-perf-tests.ps1
+﻿# scripts/run-perf-tests.ps1
 #
 # One-command local run: brings up the InfluxDB+Grafana stack if it's not
 # already running, runs all three k6 scenarios (writing to InfluxDB for the
@@ -107,7 +107,14 @@ if ($runCheckout) {
         -e TEST_CHECKOUT_VARIANT_ID=$TestCheckoutVariantId
 }
 
-# --- 5. Open results --------------------------------------------------------
+# --- 5. Clean up perf-* leftover data --------------------------------------
+Write-Host "`nCleaning up perf-variant-* and perf-order-*/perf-checkout-* data..." -ForegroundColor Cyan
+node scripts/cleanup-perf-data.js
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Cleanup script failed — check output above. Perf data may still be in the DB." -ForegroundColor Red
+}
+
+# --- 6. Open results --------------------------------------------------------
 Write-Host "`nOpening Grafana dashboard + this run's HTML report(s)..." -ForegroundColor Cyan
 Start-Process "http://localhost:3000/d/saleor-k6-perf"
 
