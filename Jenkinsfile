@@ -8,8 +8,8 @@ pipeline {
     parameters {
         // TEST_PRODUCT_ID: id of a product reserved for perf runs — see
         // tests/k6/scenarios/product-variant-creation.js header comment.
-        string(name: 'TEST_PRODUCT_ID', defaultValue: '', description: 'Product ID reserved for k6 variant-creation load test (required)')
-        string(name: 'TEST_CHECKOUT_VARIANT_ID', defaultValue: '', description: 'Variant ID with stock, used by k6 to seed its own orders for the refund load test (required)')
+        string(name: 'TEST_PRODUCT_ID', defaultValue: 'UHJvZHVjdDoxNTI=', description: 'Product ID reserved for k6 variant-creation load test (required)')
+        string(name: 'TEST_CHECKOUT_VARIANT_ID', defaultValue: 'UHJvZHVjdFZhcmlhbnQ6Mzg0', description: 'Variant ID with stock, used by k6 to seed its own orders for the refund load test (required)')
     }
 
     environment {
@@ -166,26 +166,26 @@ pipeline {
                         // the Playwright HTML report, InfluxDB output is additive,
                         // so this does NOT overwrite results between runs.
                         def variantExit = powershell(
-                            script: """
+                            script: '''
                                 k6 run tests/k6/scenarios/product-variant-creation.js `
                                     --out influxdb=$env:INFLUXDB_URL `
                                     -e SALEOR_API_URL=$env:SALEOR_API_URL `
                                     -e SALEOR_ADMIN_EMAIL=$env:ADMIN_EMAIL `
                                     -e SALEOR_ADMIN_PASSWORD=$env:ADMIN_PASSWORD `
-                                    -e TEST_PRODUCT_ID=$params.TEST_PRODUCT_ID
-                            """,
+                                    -e TEST_PRODUCT_ID=$env:TEST_PRODUCT_ID
+                            ''',
                             returnStatus: true
                         )
 
                         def refundExit = powershell(
-                            script: """
+                            script: '''
                                 k6 run tests/k6/scenarios/order-refund.js `
                                     --out influxdb=$env:INFLUXDB_URL `
                                     -e SALEOR_API_URL=$env:SALEOR_API_URL `
                                     -e SALEOR_ADMIN_EMAIL=$env:ADMIN_EMAIL `
                                     -e SALEOR_ADMIN_PASSWORD=$env:ADMIN_PASSWORD `
-                                    -e TEST_CHECKOUT_VARIANT_ID=$params.TEST_CHECKOUT_VARIANT_ID
-                            """,
+                                    -e TEST_CHECKOUT_VARIANT_ID=$env:TEST_CHECKOUT_VARIANT_ID
+                            ''',
                             returnStatus: true
                         )
 
