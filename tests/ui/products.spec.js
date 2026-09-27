@@ -96,11 +96,12 @@ test.describe.serial('Dashboard UI — Product Management Module: Test Scenario 
     let productID;
     let variantId;
     let res;
-    const updatedName = 'UI Test Product - Updated';
+    const runId = Date.now();
+    const updatedName = `UI Test Product ${runId} - Updated`;
     const limitedUserProductName = 'Limited Staff Updated Product';
     const product = {
         productType: "Default Type",
-        name: "UI Test Product",
+        name: `UI Test Product ${runId}`,
         description: "A product made for UI testing.",
         rating: 3,
         shippingWeight: 40,
@@ -108,7 +109,7 @@ test.describe.serial('Dashboard UI — Product Management Module: Test Scenario 
             { name: 'Channel-USD', sellingPrice: "30", costPrice: "28" },
             { name: 'Channel-PLN', sellingPrice: "45", costPrice: "40" },
         ],
-        sku: 'ui-product-01',
+        sku: `ui-product-${runId}`,
         trackInventory: true,
         category: "Default Category",
         collections: ['Summer Picks'],
@@ -149,9 +150,9 @@ test.describe.serial('Dashboard UI — Product Management Module: Test Scenario 
 
         await test.step('PROD-UI-002 should auto-generate the slug from the product name', async () => {
             const slug = await productsPage.slugVerification();
-            expect(slug.trim()).toBe('ui-test-product');
+            expect(slug.trim()).toBe(`ui-test-product-${runId}`);
             res = await query('SELECT * FROM product_product WHERE name=$1 LIMIT 1', [product.name]);
-            expect(res[0].slug).toBe('ui-test-product');
+            expect(res[0].slug).toBe(`ui-test-product-${runId}`);
         });
 
         await test.step('PROD-UI-003 should derive description_plaintext correctly from rich-text input', async () => {
@@ -579,7 +580,7 @@ test.describe.serial('Dashboard UI — Product Management Module: Test Scenario 
     test('I. RBAC — Product Module (ties to Section G / login modules PROD-adjacent items)', async ({ page }) => {
         test.setTimeout(60000);
         loginPage = new LoginPage(page);
-        const updatedName = 'UI Test Product - Updated';
+        const updatedName = `UI Test Product ${runId} - Updated`;
         const limitedUser = {
             email: "limited-staff-standing@tester.com",
             password: "12345678"

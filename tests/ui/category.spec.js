@@ -12,16 +12,17 @@ test.describe.serial('4.3 Category & Collection Management UI', () => {
     let categoryResult;
     let productIds;
     let listingsBefore;
-    const updatedCategoryTitle = 'Updated Test Category';
+    const runId = Date.now();
+    const updatedCategoryTitle = `Updated Test Category ${runId}`;
     let controlProductIds;
     const category = {
-        name: 'Test Category',
+        name: `Test Category ${runId}`,
         description: 'This is a test category',
 
 
     };
     const childCategory = {
-        name: 'Child Test Category',
+        name: `Child Test Category ${runId}`,
         description: 'This is a child test category',
 
 
@@ -46,6 +47,16 @@ test.describe.serial('4.3 Category & Collection Management UI', () => {
     test.beforeEach(async ({ page }) => {
         categoryPage = new CategoryPage(page);
         productsPage = new ProductsPage(page);
+    });
+
+    test.afterAll(async () => {
+        if (categoryId) {
+            try {
+                await query('DELETE FROM product_category WHERE id = $1', [categoryId]);
+            } catch (err) {
+                console.log(`category cleanup: already deleted or failed: ${err.message}`);
+            }
+        }
     });
 
     test('A. Category — Create (P0)', async ({ page }) => {
@@ -145,7 +156,7 @@ test.describe.serial('4.3 Category & Collection Management UI', () => {
 
     test('E. Category — Delete (P0)', async ({ page }) => {
         await test.step('CAT-UI-011 should require confirmation before deleting a category', async () => {
-            
+
             // Fetching products under category sweatshirts with ID 29 to see if the deletion of this custom category has any
             // effect on its products
 
@@ -153,7 +164,7 @@ test.describe.serial('4.3 Category & Collection Management UI', () => {
                 'SELECT id FROM product_product WHERE category_id = $1',
                 [29] // sweatshirts category_id = 29
             )).map(p => p.id);
-            console.log('Product IDs are: ',controlProductIds);
+            console.log('Product IDs are: ', controlProductIds);
 
             productIds = await query(
                 'SELECT id, name FROM product_product WHERE category_id = $1',

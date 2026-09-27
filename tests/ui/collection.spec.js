@@ -10,12 +10,13 @@ test.describe.serial('Collection Testing Suite', () => {
     let afterUpdateInfo;
     let assignedProductId;
     let channel, filter;
+    const runId = Date.now();
     const availableChannels = [{ channel_id: 1 }, { channel_id: 2 }];
     let assignedProduct = {
         name: 'Blue Plimsolls'
     };
     const collection = {
-        name: 'Test Collection',
+        name: `Test Collection ${runId}`,
         description: 'Description for Test Colelction',
         channels: ['Channel-PLN']
     }
@@ -30,6 +31,16 @@ test.describe.serial('Collection Testing Suite', () => {
     test.beforeEach(async ({ page }) => {
         collectionPage = new CollectionPage(page);
     })
+
+    test.afterAll(async () => {
+        if (collectionId) {
+            try {
+                await query('DELETE FROM product_collection WHERE id = $1', [collectionId]);
+            } catch (err) {
+                console.log(`category cleanup: already deleted or failed: ${err.message}`);
+            }
+        }
+    });
 
 
     test('E. Collection — Create/Update/Delete (P0)', async ({ page }) => {
@@ -78,7 +89,9 @@ test.describe.serial('Collection Testing Suite', () => {
     test('F. Collection — Channel Listing (P0)', async ({ page }) => {
         await test.step('CAT-UI-019 should toggle a collections published status for a channel', async () => {
             await page.goto('collections');
-            await collectionPage.navigateToCollection(collection.name);
+            // Discrepency here: The collection name has been updated to it could be the test failed due to previous name no longer valid?
+            await collectionPage.navigateToCollection(udpatedCollection.name);
+            // await collectionPage.navigateToCollection(collection.name);
             await collectionPage.toggleChannelOn('Channel-USD');
 
         })
@@ -154,9 +167,9 @@ test.describe.serial('Collection Testing Suite', () => {
         await collectionPage.navigateToCollection('Summer Picks');
         await collectionPage.updateCollection(limitedStaffCollection);
         const [summerPicks] = await query(
-            `SELECT id FROM product_collection WHERE name = $1 LIMIT 1`,[limitedStaffCollection.name]
+            `SELECT id FROM product_collection WHERE name = $1 LIMIT 1`, [limitedStaffCollection.name]
         );
-        console.log('fetched collection is: ',summerPicks);
+        console.log('fetched collection is: ', summerPicks);
         const limitedStaffUpdateInfo = await query(
             'SELECT * FROM product_collection WHERE id = $1 LIMIT 1',
             [summerPicks.id]

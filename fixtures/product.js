@@ -44,11 +44,28 @@ exports.test = authTest.extend({
             await use(product);
 
             try {
+                // staffToken can be 5+ minutes stale by the time a worker-scoped fixture
+                // tears down on a full CI run — re-authenticate instead of reusing it.
+                const { data: authData } = await graphqlRequest(
+                    ctx,
+                    `mutation TokenCreate($email: String!, $password: String!) {
+                        tokenCreate(email: $email, password: $password) {
+                            token
+                            errors { field message }
+                        }
+                    }`,
+                    { email: process.env.ADMIN_EMAIL, password: process.env.ADMIN_PASSWORD }
+                );
+                if (authData.tokenCreate.errors.length) {
+                    throw new Error(`teardown re-auth failed: ${JSON.stringify(authData.tokenCreate.errors)}`);
+                }
+                const freshToken = authData.tokenCreate.token;
+
                 const { data: deleteData } = await graphqlRequest(
                     ctx,
                     `mutation DeleteProduct($id: ID!) { productDelete(id: $id) { errors { field message } } }`,
                     { id: product.id },
-                    staffToken
+                    freshToken
                 );
                 if (deleteData.productDelete.errors.length) {
                     console.error(`testProduct fixture teardown: productDelete failed for ${product.id}: ${JSON.stringify(deleteData.productDelete.errors)}`);
