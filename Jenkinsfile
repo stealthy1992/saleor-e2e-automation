@@ -161,7 +161,7 @@ pipeline {
                     string(credentialsId: 'SALEOR_ADMIN_PASSWORD', variable: 'ADMIN_PASSWORD')
                 ]) {
                     script {
-                        // Two separate k6 invocations, both writing to the same
+                        // Three separate k6 invocations, all writing to the same
                         // InfluxDB bucket under different `scenario` tags — unlike
                         // the Playwright HTML report, InfluxDB output is additive,
                         // so this does NOT overwrite results between runs.
@@ -189,11 +189,42 @@ pipeline {
                             returnStatus: true
                         )
 
-                        if (variantExit != 0 || refundExit != 0) {
-                            unstable('k6 performance thresholds breached (p95 < 500ms / error rate < 1%) — build marked unstable')
+                        // checkout-order-flow.js is guest-checkout only — no
+                        // staff token needed, unlike the other two scenarios.
+                        def checkoutExit = powershell(
+                            script: '''
+                                k6 run tests/k6/scenarios/checkout-order-flow.js `
+                                    --out influxdb=$env:INFLUXDB_URL `
+                                    -e SALEOR_API_URL=$env:SALEOR_API_URL `
+                                    -e TEST_CHECKOUT_VARIANT_ID=$env:TEST_CHECKOUT_VARIANT_ID
+                            ''',
+                            returnStatus: true
+                        )
+
+                        if (variantExit != 0 || refundExit != 0 || checkoutExit != 0) {
+                            unstable('k6 performance thresholds breached — build marked unstable')
                         }
 
                         echo "View results: ${env.GRAFANA_URL}"
+                    }
+                }
+            }
+        }
+
+        stage('Clean up perf test data') {
+            // Runs whenever the k6 stage above could have produced data,
+            // even if that stage was skipped (params blank) — cheap and
+            // idempotent, so no harm running it unconditionally here too;
+            // matches the same post-execution step run-perf-tests.ps1 does
+            // for local runs.
+            steps {
+                script {
+                    def cleanupExit = powershell(
+                        script: 'node scripts/cleanup-perf-data.js',
+                        returnStatus: true
+                    )
+                    if (cleanupExit != 0) {
+                        echo 'WARNING: cleanup-perf-data.js failed — perf-variant-*/perf-order-*/perf-checkout-* rows may still be in the DB. Check console output above.'
                     }
                 }
             }
