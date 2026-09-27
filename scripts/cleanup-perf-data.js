@@ -21,7 +21,7 @@
 //
 // Usage: node scripts/cleanup-perf-data.js
 
-const { query, closePool } = require('../db-client'); // adjust path if db-client.js lives elsewhere
+const { query, closePool } = require('../utils/db-client'); // adjust path if db-client.js lives elsewhere
 
 async function main() {
   console.log('[cleanup] deleting perf-variant-* product variants...');
