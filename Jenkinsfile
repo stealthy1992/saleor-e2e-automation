@@ -212,11 +212,9 @@ pipeline {
         }
 
         stage('Clean up perf test data') {
-            // Runs whenever the k6 stage above could have produced data,
-            // even if that stage was skipped (params blank) — cheap and
-            // idempotent, so no harm running it unconditionally here too;
-            // matches the same post-execution step run-perf-tests.ps1 does
-            // for local runs.
+            environment {
+                DATABASE_URL = 'postgres://saleor:saleor@127.0.0.1:5432/saleor'
+            }
             steps {
                 script {
                     def cleanupExit = powershell(
@@ -224,7 +222,7 @@ pipeline {
                         returnStatus: true
                     )
                     if (cleanupExit != 0) {
-                        echo 'WARNING: cleanup-perf-data.js failed — perf-variant-*/perf-order-*/perf-checkout-* rows may still be in the DB. Check console output above.'
+                        unstable('cleanup-perf-data.js failed — perf-variant-*/perf-order-*/perf-checkout-* rows may still be in the DB. Check console output above.')
                     }
                 }
             }
