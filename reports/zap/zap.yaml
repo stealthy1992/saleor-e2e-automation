@@ -1,0 +1,37 @@
+env:
+  contexts:
+  - excludePaths: []
+    name: baseline
+    urls:
+    - http://host.docker.internal:9000/
+  parameters:
+    failOnError: true
+    progressToStdout: false
+jobs:
+- parameters:
+    enableTags: false
+    maxAlertsPerRule: 10
+  type: passiveScan-config
+- parameters:
+    maxDuration: 2
+    url: http://host.docker.internal:9000/
+  type: spider
+- parameters:
+    maxDuration: 2
+    url: http://host.docker.internal:9000/
+  type: spiderClient
+- parameters:
+    maxDuration: 0
+  type: passiveScan-wait
+- parameters:
+    format: Long
+    summaryFile: /home/zap/zap_out.json
+  rules: []
+  type: outputSummary
+- parameters:
+    reportDescription: ''
+    reportDir: /zap/wrk/
+    reportFile: zap-dashboard-report.html
+    reportTitle: ZAP Scanning Report
+    template: traditional-html
+  type: report

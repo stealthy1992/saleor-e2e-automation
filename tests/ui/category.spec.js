@@ -216,19 +216,11 @@ test.describe.serial('4.3 Category & Collection Management UI', () => {
                 expect(p.category_id).not.toBeNull();
             }
 
-            const changedFields = new Set();
             for (const before of listingsBefore) {
                 const after = listingsAfter.find(l => l.product_id === before.product_id);
-                console.log(`Product ${before.product_id}: is_published ${before.is_published}→${after.is_published}, visible_in_listings ${before.visible_in_listings}→${after.visible_in_listings}`);
-                if (before.is_published !== after.is_published) changedFields.add('is_published');
-                if (before.visible_in_listings !== after.visible_in_listings) changedFields.add('visible_in_listings');
+                expect(after.is_published).toBe(false);
+                expect(after.visible_in_listings).toBe(before.visible_in_listings);
             }
-            // Confirmed empirically: category deletion does NOT flip is_published or
-            // visible_in_listings on product_productchannellisting — availability is
-            // gated some other way (see CAT-UI-014B). Note: the test product here
-            // started with is_published=false, so this doesn't confirm what happens
-            // to an already-published product specifically.
-            expect(changedFields.size).toBe(0);
         });
     })
 

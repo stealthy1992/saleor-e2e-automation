@@ -228,20 +228,28 @@ pipeline {
             }
         }
 
-        // Placeholder for SCRUM-14 (OWASP ZAP) — not yet implemented.
-        // stage('Run OWASP ZAP Authenticated Scan') {
-        //     steps {
-        //         script {
-        //             def exitCode = powershell(
-        //                 script: 'docker run --rm -v C:\\zap-reports:/zap/wrk/:rw -v C:\\zap-scripts:/zap/scripts/:rw -t zaproxy/zap-stable zap.sh -cmd -autorun /zap/scripts/saleor-autorun.yaml',
-        //                 returnStatus: true
-        //             )
-        //             if (exitCode >= 1) {
-        //                 unstable('ZAP scan found issues — build marked unstable. Review ZAP report.')
-        //             }
-        //         }
-        //     }
-        // }
+        stage('ZAP security scan') {
+            steps {
+                script {
+                    def zapExit = powershell(
+                        script: '''
+                            New-Item -ItemType Directory -Force reports/zap | Out-Null
+                            docker run --rm -v "${PWD}/reports/zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable zap-api-scan.py `
+                                -t http://host.docker.internal:8000/graphql/ -f graphql -S -I `
+                                -r zap-api-report.html -J zap-api-report.json
+                        ''',
+                        returnStatus: true
+                    )
+                    if (zapExit != 0) {
+                        unstable('ZAP scan reported failures or did not run — see the ZAP report')
+                    }
+                }
+                archiveArtifacts artifacts: 'reports/zap/**', allowEmptyArchive: true
+                publishHTML(target: [reportDir: 'reports/zap', reportFiles: 'zap-api-report.html',
+                                    reportName: 'ZAP API Report', keepAll: true,
+                                    alwaysLinkToLastBuild: true, allowMissing: true])
+            }
+        }
     }
 
     post {
