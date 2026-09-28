@@ -12,12 +12,11 @@
 // The order-side cascade order matters (FK dependents before parents) and
 // was derived by hitting each constraint in turn against the live schema:
 // payment_transaction -> payment_payment -> order_orderevent ->
-// order_orderline -> order_fulfillmentline -> order_fulfillment ->
-// order_order. order_orderlinediscount and warehouse_allocation do not
-// exist in this schema version and are intentionally omitted; if you
-// upgrade Saleor and this script starts failing on a new FK, add the
-// child-table DELETE for whatever table the error names, ahead of the
-// order_order DELETE.
+// warehouse_allocation -> discount_orderlinediscount -> order_orderline ->
+// order_fulfillmentline -> order_fulfillment -> discount_orderdiscount ->
+// order_order. If you upgrade Saleor and this script starts failing on a
+// new FK, add the child-table DELETE for whatever table the error names,
+// ahead of its parent's DELETE.
 //
 // Usage: node scripts/cleanup-perf-data.js
 
@@ -31,46 +30,28 @@ async function main() {
   console.log(`[cleanup] deleted ${deletedVariants.length} variant(s)`);
 
   const emailFilter = `(user_email LIKE 'perf-order-%@loadtest.local' OR user_email LIKE 'perf-checkout-%@loadtest.local')`;
+  const orderIds = `SELECT id FROM order_order WHERE ${emailFilter}`;
+  const lineIds = `SELECT id FROM order_orderline WHERE order_id IN (${orderIds})`;
 
   console.log('[cleanup] deleting perf-order-*/perf-checkout-* order data...');
 
   await query(`
     DELETE FROM payment_transaction WHERE payment_id IN (
-      SELECT p.id FROM payment_payment p JOIN order_order o ON p.order_id = o.id
-      WHERE o.user_email LIKE 'perf-order-%@loadtest.local' OR o.user_email LIKE 'perf-checkout-%@loadtest.local'
+      SELECT id FROM payment_payment WHERE order_id IN (${orderIds})
     )
   `);
-
-  await query(`
-    DELETE FROM payment_payment WHERE order_id IN (
-      SELECT id FROM order_order WHERE ${emailFilter}
-    )
-  `);
-
-  await query(`
-    DELETE FROM order_orderevent WHERE order_id IN (
-      SELECT id FROM order_order WHERE ${emailFilter}
-    )
-  `);
-
-  await query(`
-    DELETE FROM order_orderline WHERE order_id IN (
-      SELECT id FROM order_order WHERE ${emailFilter}
-    )
-  `);
-
+  await query(`DELETE FROM payment_payment WHERE order_id IN (${orderIds})`);
+  await query(`DELETE FROM order_orderevent WHERE order_id IN (${orderIds})`);
+  await query(`DELETE FROM warehouse_allocation WHERE order_line_id IN (${lineIds})`);
+  await query(`DELETE FROM discount_orderlinediscount WHERE line_id IN (${lineIds})`);
+  await query(`DELETE FROM order_orderline WHERE order_id IN (${orderIds})`);
   await query(`
     DELETE FROM order_fulfillmentline WHERE fulfillment_id IN (
-      SELECT f.id FROM order_fulfillment f JOIN order_order o ON f.order_id = o.id
-      WHERE o.user_email LIKE 'perf-order-%@loadtest.local' OR o.user_email LIKE 'perf-checkout-%@loadtest.local'
+      SELECT id FROM order_fulfillment WHERE order_id IN (${orderIds})
     )
   `);
-
-  await query(`
-    DELETE FROM order_fulfillment WHERE order_id IN (
-      SELECT id FROM order_order WHERE ${emailFilter}
-    )
-  `);
+  await query(`DELETE FROM order_fulfillment WHERE order_id IN (${orderIds})`);
+  await query(`DELETE FROM discount_orderdiscount WHERE order_id IN (${orderIds})`);
 
   const deletedOrders = await query(`DELETE FROM order_order WHERE ${emailFilter} RETURNING id`);
   console.log(`[cleanup] deleted ${deletedOrders.length} order(s)`);

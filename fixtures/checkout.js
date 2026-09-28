@@ -83,10 +83,11 @@ async function hardDeleteOrders(globalOrderIds) {
             `DELETE FROM discount_orderdiscount WHERE order_id = ANY($1::uuid[])`,
             [orderIds]
         );
-        await client.query(
+        const res = await client.query(
             `DELETE FROM order_order WHERE id = ANY($1::uuid[])`,
             [orderIds]
         );
+        console.log(`createOrder teardown: hard-deleted ${res.rowCount}/${orderIds.length} order(s)`);
 
         await client.query('COMMIT');
     } catch (err) {
