@@ -230,20 +230,50 @@ pipeline {
 
         stage('ZAP security scan') {
             steps {
-                script {
-                    def zapExit = powershell(
-                        script: '''
-                            New-Item -ItemType Directory -Force reports/zap | Out-Null
-                            docker run --rm -v "${PWD}/reports/zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable zap-api-scan.py `
-                                -t http://host.docker.internal:8000/graphql/ -f graphql -S -I `
-                                -r zap-api-report.html -J zap-api-report.json
-                        ''',
-                        returnStatus: true
-                    )
-                    if (zapExit != 0) {
-                        unstable('ZAP scan reported failures or did not run — see the ZAP report')
+                withCredentials([
+                    string(credentialsId: 'SALEOR_ADMIN_EMAIL', variable: 'ADMIN_EMAIL'),
+                    string(credentialsId: 'SALEOR_ADMIN_PASSWORD', variable: 'ADMIN_PASSWORD')
+                ]) {
+                    script {
+                        def zapExit = powershell(
+                            script: '''
+                                $ErrorActionPreference = "Stop"
+                                New-Item -ItemType Directory -Force reports/zap | Out-Null
+
+                                $body = @{
+                                    query = "mutation TokenCreate(`$email: String!, `$password: String!) { tokenCreate(email: `$email, password: `$password) { token errors { field message } } }"
+                                    variables = @{ email = $env:ADMIN_EMAIL; password = $env:ADMIN_PASSWORD }
+                                } | ConvertTo-Json -Depth 5
+
+                                $auth = Invoke-RestMethod -Uri "$env:SALEOR_API_URL" -Method Post -ContentType "application/json" -Body $body
+                                if ($auth.data.tokenCreate.errors.Count -gt 0) {
+                                    Write-Error "tokenCreate failed: $($auth.data.tokenCreate.errors | ConvertTo-Json)"
+                                    exit 1
+                                }
+                                $adminToken = $auth.data.tokenCreate.token
+                                if (-not $adminToken) { Write-Error "tokenCreate returned no token"; exit 1 }
+                                Write-Host "[zap] fetched admin token, length $($adminToken.Length)"
+
+                                $replacer = "-config replacer.full_list(0).description=auth " +
+                                    "-config replacer.full_list(0).enabled=true " +
+                                    "-config replacer.full_list(0).matchtype=REQ_HEADER " +
+                                    "-config replacer.full_list(0).matchstr=Authorization " +
+                                    "-config replacer.full_list(0).regex=false " +
+                                    "-config `"replacer.full_list(0).replacement=Bearer $adminToken`""
+
+                                docker run --rm -v "${PWD}/reports/zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable zap-api-scan.py `
+                                    -t http://host.docker.internal:8000/graphql/ -f graphql -S -I `
+                                    -z "$replacer" `
+                                    -r zap-api-report.html -J zap-api-report.json
+                            ''',
+                            returnStatus: true
+                        )
+                        if (zapExit != 0) {
+                            unstable('ZAP API scan reported failures or did not run — see the ZAP report')
+                        }
                     }
                 }
+
                 archiveArtifacts artifacts: 'reports/zap/**', allowEmptyArchive: true
                 publishHTML(target: [reportDir: 'reports/zap', reportFiles: 'zap-api-report.html',
                                     reportName: 'ZAP API Report', keepAll: true,
