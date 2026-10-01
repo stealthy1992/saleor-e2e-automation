@@ -34,7 +34,7 @@ class PromotionPage extends BasePage {
         }
     }
 
-    async scrollConditionDropdownToLoadAll(rowIndex, { maxScrolls = 30, settleMs = 300 } = {}) {
+    async scrollConditionDropdownToLoadAll(rowIndex, { maxScrolls = 40, settleMs = 400, stableReads = 3 } = {}) {
         console.log('Row index is: ', rowIndex);
         const input = this.page.getByTestId(`condition-value-${rowIndex}`);
         await input.click();
@@ -43,22 +43,24 @@ class PromotionPage extends BasePage {
         const menu = this.page.locator(`[id="${menuId}"]`);
         const options = menu.getByTestId('select-option');
 
-        let previousCount = -1;
-        let currentCount = await options.count();
-
-        for (let i = 0; i < maxScrolls && currentCount !== previousCount; i++) {
-            previousCount = currentCount;
-
+        let lastCount = await options.count();
+        let stable = 0;
+        for (let i = 0; i < maxScrolls; i++) {
+            const fetched = this.page
+                .waitForResponse(r => r.url().includes('/graphql') && r.request().method() === 'POST', { timeout: 1500 })
+                .catch(() => null);
             await menu.evaluate(el => el.scrollTo(0, el.scrollHeight));
-            await this.page.waitForTimeout(settleMs); // let the async fetch resolve
-
-            currentCount = await options.count();
+            await fetched;
+            await this.page.waitForTimeout(settleMs);
+            const count = await options.count();
+            if (count === lastCount) {
+                if (++stable >= stableReads) return count;
+            } else {
+                stable = 0;
+                lastCount = count;
+            }
         }
-
-        if (currentCount === previousCount && currentCount > 0) {
-            return currentCount; // stabilized — no new items after the last scroll
-        }
-        throw new Error(`scrollConditionDropdownToLoadAll: count never stabilized after ${maxScrolls} scrolls (last count: ${currentCount})`);
+        throw new Error(`scrollConditionDropdownToLoadAll: count never stabilized after ${maxScrolls} scrolls (last count: ${lastCount})`);
     }
 
     async applyConditionOn(rowIndex, appliedOnName) {

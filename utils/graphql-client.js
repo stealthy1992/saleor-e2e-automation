@@ -4,7 +4,7 @@
  * endpoint is a plain POST with a { query, variables } JSON body, so
  * Playwright's built-in request context handles it directly.
  */
-
+const { validateResponse } = require('../utils/response-validator'); // adjust the relative path to where this file lives
 /**
  * @param {import('@playwright/test').APIRequestContext} request
  * @param {string} query - GraphQL query or mutation string
@@ -21,6 +21,7 @@ async function graphqlRequest(request, query, variables = {}, token = null) {
   });
 
   const body = await response.json();
+  validateResponse(query, body);
 
   if (body.errors) {
     throw new Error(

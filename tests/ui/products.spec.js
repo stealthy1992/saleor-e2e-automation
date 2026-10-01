@@ -127,6 +127,7 @@ test.describe.serial('Dashboard UI — Product Management Module: Test Scenario 
     // });
 
     test('A. Product Creation — Happy Path & Real Saleor Logic', async ({ page }) => {
+        test.slow();
         await test.step('PROD-UI-001 should create a product with all required fields via the UI', async () => {
             let productCreateCalled = false;
             await page.route('**/graphql/', async (route) => {

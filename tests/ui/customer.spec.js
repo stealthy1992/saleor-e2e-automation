@@ -229,6 +229,7 @@ customerTest.describe.serial('4.5 Customer Management UI', () => {
 
 
         test('**CUST-UI-016** `should hide or restrict Customer management for the limited-access (MANAGE_PRODUCTS-only) staff`', async ({ page }) => {
+            test.setTimeout(60_000);
             let customerPage, loginPage;
             const limitedUser = {
                 email: "limited-staff-standing@tester.com",

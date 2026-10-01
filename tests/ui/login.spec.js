@@ -92,7 +92,7 @@ test.describe.serial('This will test the entire login module', () => {
         })
     })
 
-    test('C. Negative Credentials (server-side rejection)', async ({ page }) => {
+    test('C. Negative Credentials (server-side rejection)', { tag: '@throttle' }, async ({ page }) => {
 
         await test.step('LOGIN-009 should show an error for a valid email with wrong password', async () => {
             let tokenCreateMutationCalled = false;
@@ -158,7 +158,7 @@ test.describe.serial('This will test the entire login module', () => {
         })
     })
 
-    test('LOGIN-013 should display a rate-limit message after rapid repeated login attempts', async ({ page }) => {
+    test('LOGIN-013 should display a rate-limit message after rapid repeated login attempts', { tag: '@throttle' }, async ({ page }) => {
         test.setTimeout(180000);
         let lastApiErrors = null;
         let waitMs = 500;
@@ -195,7 +195,7 @@ test.describe.serial('This will test the entire login module', () => {
         await page.unroute('**/graphql/');
     })
 
-    test('LOGIN-015 should allow login to succeed again once the rate-limit window clears', async ({ page }) => {
+    test('LOGIN-015 should allow login to succeed again once the rate-limit window clears', { tag: '@throttle' }, async ({ page }) => {
         let lastApiErrors = null;
         let waitMs = 500;
 

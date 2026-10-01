@@ -51,6 +51,7 @@ class CategoryPage extends BasePage{
         await this.selectors.deleteButtonInsideAlert.waitFor({ state: 'visible' });
         await this.selectors.deleteButtonInsideAlert.click();
         await this.selectors.categoryDeleteSuccess.waitFor({ state: 'visible' });
+        await this.selectors.categoryDeleteSuccess.waitFor({ state: 'hidden' });
         const updatedCategoryList = await this.fetchCategories();
         return updatedCategoryList;
     }

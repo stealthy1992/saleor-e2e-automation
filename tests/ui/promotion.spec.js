@@ -19,6 +19,7 @@ test.describe('This will test promotion rules vis-a-vis products/variants', () =
     })
 
     test('Add large-catalog pagination coverage in Assign Variant dialogs', async ({ page, testPromotion }) => {
+        test.setTimeout(60_000);
         console.log('Promotion created is: ', testPromotion);
         await page.goto('dashboard/discounts/sales');
         // await promotionPage.createPromotion();

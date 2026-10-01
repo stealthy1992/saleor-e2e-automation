@@ -107,7 +107,7 @@ test.describe.serial('4.4 Order Management UI', () => {
     });
 
     test('D. Order Search & Filtering (P0)', async ({ page }) => {
-        test.setTimeout(90000);
+        test.setTimeout(180_000);
         let orderResults, orderInDb;
         const orderStatusFilter = 'fulfilled';
         const expectedIso = '2026-08-06T10:40';

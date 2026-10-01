@@ -5,11 +5,19 @@
   "scripts": {
     "test": "playwright test",
     "test:api": "playwright test --project=api",
-    "report": "playwright show-report"
+    "report": "playwright show-report",
+    "schema:snapshot": "node scripts/snapshot-schema.js",
+    "test:contract": "playwright test --project=api --grep @contract",
+    "schema:coverage": "node scripts/schema-coverage-report.js"
   },
   "dependencies": {
     "@playwright/test": "^1.48.0",
     "dotenv": "^16.4.5",
     "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "graphql": "^16.14.2"
   }
 }

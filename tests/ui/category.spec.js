@@ -5,6 +5,7 @@ const { query } = require('../../utils/db-client');
 
 test.describe.serial('4.3 Category & Collection Management UI', () => {
     let categoryPage;
+    let originalCat;
     let productsPage;
     let categoryId;
     let subCategoryId;
@@ -50,12 +51,22 @@ test.describe.serial('4.3 Category & Collection Management UI', () => {
     });
 
     test.afterAll(async () => {
-        if (categoryId) {
-            try {
-                await query('DELETE FROM product_category WHERE id = $1', [categoryId]);
-            } catch (err) {
-                console.log(`category cleanup: already deleted or failed: ${err.message}`);
+        if (originalCat) await query('UPDATE product_product SET category_id = $1 WHERE id = $2', [originalCat.category_id, originalCat.id]);
+        if (!categoryId) return;
+        try {
+            const tree = await query(
+                `WITH RECURSIVE t AS (
+               SELECT id, 0 AS depth FROM product_category WHERE id = $1
+               UNION ALL
+               SELECT c.id, t.depth + 1 FROM product_category c JOIN t ON c.parent_id = t.id
+             ) SELECT id FROM t ORDER BY depth DESC`, [categoryId]);
+            const ids = tree.map(r => r.id);
+            if (ids.length) {
+                await query('UPDATE product_product SET category_id = NULL WHERE category_id = ANY($1)', [ids]);
+                for (const id of ids) await query('DELETE FROM product_category WHERE id = $1', [id]);
             }
+        } catch (err) {
+            console.log(`category cleanup: failed: ${err.message}`);
         }
     });
 
@@ -143,6 +154,7 @@ test.describe.serial('4.3 Category & Collection Management UI', () => {
     })
 
     test('D. Assign Products to test category - Product Assignment', async ({ page }) => {
+        originalCat = (await query('SELECT id, category_id FROM product_product WHERE name = $1', [product.name]))[0];
         await page.goto('/dashboard/categories');
         await categoryPage.navigateToParentCategory(category.name);
         await categoryPage.navigateToAssignedProducts();
@@ -150,7 +162,10 @@ test.describe.serial('4.3 Category & Collection Management UI', () => {
         await page.goto('/dashboard/categories');
         await categoryPage.navigateToParentCategory(category.name);
         await categoryPage.navigateToAssignedProducts();
-
+        await expect.poll(
+            async () => (await query('SELECT id FROM product_product WHERE category_id = $1', [categoryId])).length,
+            { message: 'product not assigned to test category', timeout: 10_000 }
+        ).toBeGreaterThan(0);
 
     })
 
@@ -166,11 +181,17 @@ test.describe.serial('4.3 Category & Collection Management UI', () => {
             )).map(p => p.id);
             console.log('Product IDs are: ', controlProductIds);
 
-            productIds = await query(
-                'SELECT id, name FROM product_product WHERE category_id = $1',
-                [categoryId]
-            );
-            expect(productIds.length).toBeGreaterThan(0);
+            // productIds = await query(
+            //     'SELECT id, name FROM product_product WHERE category_id = $1',
+            //     [categoryId]
+            // );
+            // expect(productIds.length).toBeGreaterThan(0);
+
+            await expect.poll(async () => {
+                productIds = await query('SELECT id, name FROM product_product WHERE category_id = $1', [categoryId]);
+                return productIds.length;
+            }, { message: `no products assigned to category ${categoryId}`, timeout: 10_000 }).toBeGreaterThan(0);
+
             listingsBefore = await query(
                 'SELECT product_id, is_published, visible_in_listings FROM product_productchannellisting WHERE product_id = ANY($1)',
                 [productIds.map(p => p.id)]

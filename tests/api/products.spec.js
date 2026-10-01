@@ -141,7 +141,11 @@ test.describe('Product pagination', () => {
  
         // Confirm the full 32-product run has no duplicates, i.e. no product
         // id was returned across two different pages.
-        expect(retrievedProducts.length).toBe(32);
+        // expect(retrievedProducts.length).toBe(32);
+
+        // Add totalCount to that query's selection, and replace the hard-coded count
+        expect(data.products.edges.length).toBe(data.products.totalCount - 30);
+
  
         const uniqueProducts = new Set(retrievedProducts);
         expect(uniqueProducts.size).toBe(retrievedProducts.length);
