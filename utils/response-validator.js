@@ -44,8 +44,9 @@ function record(name, failed) {
   coverage.set(name, c);
 }
 
-function validateResponse(query, body, { operationName } = {}) {
-  const mode = (process.env.SCHEMA_VALIDATE || 'strict').toLowerCase();
+function validateResponse(query, body, { operationName, mode: modeOverride, record: shouldRecord = true }  = {}) {
+  // const mode = (process.env.SCHEMA_VALIDATE || 'strict').toLowerCase();
+  const mode = (modeOverride || process.env.SCHEMA_VALIDATE || 'strict').toLowerCase();
   if (mode === 'off') return;
   const schema = getSchema();
   if (!schema) {
@@ -65,7 +66,8 @@ function validateResponse(query, body, { operationName } = {}) {
   }
   const validator = body && body.errors ? entry.fail : entry.ok;
   const valid = validator(body);
-  record(entry.name, !valid);
+  if (shouldRecord) record(entry.name, !valid);
+  // record(entry.name, !valid);
   if (valid) return;
 
   const problems = validator.errors.map(fmt);
