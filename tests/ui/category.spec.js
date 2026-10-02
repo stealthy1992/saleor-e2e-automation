@@ -170,6 +170,7 @@ test.describe.serial('4.3 Category & Collection Management UI', () => {
     })
 
     test('E. Category — Delete (P0)', async ({ page }) => {
+        test.setTimeout(60_000)
         await test.step('CAT-UI-011 should require confirmation before deleting a category', async () => {
 
             // Fetching products under category sweatshirts with ID 29 to see if the deletion of this custom category has any
@@ -203,7 +204,8 @@ test.describe.serial('4.3 Category & Collection Management UI', () => {
         })
 
         await test.step('CAT-UI-012 should remove the category from the list after deletion', async () => {
-            const updatedCategoryList = await categoryPage.confirmDeletion();
+            const updatedCategoryList = await categoryPage.confirmDeletion(category.name);
+            // await expect(page.getByRole('gridcell', { name: category.name })).toHaveCount(0);
             expect(updatedCategoryList).not.toContain(category.name);
 
         })

@@ -1,7 +1,7 @@
 const { expect } = require('@playwright/test');
 const BasePage = require('./BasePage');
 
-class CategoryPage extends BasePage{
+class CategoryPage extends BasePage {
     constructor(page) {
         super(page);
         this.page = page;
@@ -27,7 +27,7 @@ class CategoryPage extends BasePage{
             deleteButtonInsideAlert: page.locator('[data-test-id="submit"]', { hasText: 'Delete' }),
             productsTab: page.getByTestId('products-tab'),
             addProductsButton: page.getByTestId('assign-product'),
-            
+
             subcategoryNameField: page.getByTestId('create-category-dialog').getByTestId('category-name-input'),
             categoryPageSubmit: page.getByTestId('button-bar-confirm'),
             showMoreButton: page.getByTestId('show-more-button'),
@@ -37,7 +37,7 @@ class CategoryPage extends BasePage{
         }
     }
 
-   
+
 
     // async navigateToAssignedProducts() {
     //     // await this.selectors.productsTab.waitFor({ state: 'visible' });
@@ -47,11 +47,15 @@ class CategoryPage extends BasePage{
     //     await this.page.locator('span', { hasText: 'Assign product' }).waitFor({ state: 'visible' });
     // }
 
-    async confirmDeletion() {
+    async confirmDeletion(categoryName) {
         await this.selectors.deleteButtonInsideAlert.waitFor({ state: 'visible' });
         await this.selectors.deleteButtonInsideAlert.click();
         await this.selectors.categoryDeleteSuccess.waitFor({ state: 'visible' });
-        await this.selectors.categoryDeleteSuccess.waitFor({ state: 'hidden' });
+        // const escaped = categoryName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // await expect(
+        //     this.page.locator('td[role="gridcell"][aria-colindex="2"]', { hasText: new RegExp(`^\\s*${escaped}\\s*$`) })
+        // ).toHaveCount(0);
+        await expect(this.page.getByRole('gridcell', { name: categoryName, exact: true })).toHaveCount(0);
         const updatedCategoryList = await this.fetchCategories();
         return updatedCategoryList;
     }
@@ -89,7 +93,7 @@ class CategoryPage extends BasePage{
     async slugDuplicationValidation(slug) {
         await this.dismissAnnouncement();
         await this.selectors.editSEOButton.click();
-        await this.selectors.slugInput.waitFor({ state: 'visible' }); 
+        await this.selectors.slugInput.waitFor({ state: 'visible' });
         await this.selectors.slugInput.fill(slug);
         await expect(this.selectors.categoryPageSubmit).toBeEnabled();
         await this.selectors.categoryPageSubmit.click();
@@ -112,6 +116,19 @@ class CategoryPage extends BasePage{
         return isEnabled;
     }
 
+    async readStableNames() {
+        const cells = this.page.locator('td[role="gridcell"][aria-colindex="2"]');
+        let prev = null;
+        let cur = [];
+        await expect.poll(async () => {
+            cur = (await cells.allTextContents()).map(t => t.trim());
+            const stable = prev !== null && JSON.stringify(cur) === JSON.stringify(prev);
+            prev = cur;
+            return stable;
+        }, { intervals: [300], timeout: 10000 }).toBe(true);
+        return cur;
+    }
+
     async fetchCategories() {
 
         const allNames = [];
@@ -119,24 +136,16 @@ class CategoryPage extends BasePage{
         while (true) {
             await this.page.locator('table[role="grid"] tbody tr').first().waitFor({ state: 'attached' });
 
-            const nameCells = this.page.locator('td[role="gridcell"][aria-colindex="2"]');
-            const count = await nameCells.count();
-            console.log(`Name cells count is ${count}`)
-            const firstNameBeforeNav = count > 0 ? (await nameCells.first().textContent()).trim() : null;
-
-            for (let i = 0; i < count; i++) {
-                allNames.push((await nameCells.nth(i).textContent()).trim());
-            }
+            const names = await this.readStableNames();
+            console.log(`Name cells count is ${names.length}`);
+            const firstNameBeforeNav = names.length > 0 ? names[0] : null;
+            allNames.push(...names);
 
             const isNextDisabled = await this.selectors.nextPage.isDisabled();
             if (isNextDisabled) break;
 
             await this.selectors.nextPage.click();
 
-            // Wait for the grid to actually reload — the DOM structure persists
-            // across pagination (same table, same testids), so 'attached'/'visible'
-            // won't tell you new data has landed. Poll until the first row's text
-            // changes from what it was before navigating.
             await this.page.waitForFunction(
                 (previousFirstName) => {
                     const cell = document.querySelector('td[role="gridcell"][aria-colindex="2"]');
