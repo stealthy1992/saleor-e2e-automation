@@ -24,29 +24,29 @@ test.describe('@contract response-validator (generated from introspection)', () 
   const STRICT = { mode: 'strict', record: false };
 
   test('accepts a conforming response', () => {
-    expect(() => validateResponse(Q, good(), STRICT)).not.toThrow();
+    expect(() => rawValidate(Q, good(), STRICT)).not.toThrow();
   });
   test('accepts null for a nullable object', () => {
-    expect(() => validateResponse('{ order { id } }', { data: { order: null } }, STRICT)).not.toThrow();
+    expect(() => rawValidate('{ order { id } }', { data: { order: null } }, STRICT)).not.toThrow();
   });
   test('accepts a GraphQL error envelope', () => {
-    expect(() => validateResponse(Q, { errors: [{ message: 'x' }], data: null }, STRICT)).not.toThrow();
+    expect(() => rawValidate(Q, { errors: [{ message: 'x' }], data: null }, STRICT)).not.toThrow();
   });
 
   test('rejects enum drift and names the path', () => {
     const b = good(); b.data.order.status = 'ARCHIVED';
-    expect(() => validateResponse(Q, b, STRICT)).toThrow(SchemaValidationError);
-    expect(() => validateResponse(Q, b, STRICT)).toThrow(/data\/order\/status/);
+    expect(() => rawValidate(Q, b, STRICT)).toThrow(SchemaValidationError);
+    expect(() => rawValidate(Q, b, STRICT)).toThrow(/data\/order\/status/);
   });
   test('rejects null in a non-null field', () => {
     const b = good(); b.data.order.number = null;
-    expect(() => validateResponse(Q, b, STRICT)).toThrow(/data\/order\/number/);
+    expect(() => rawValidate(Q, b, STRICT)).toThrow(/data\/order\/number/);
   });
   test('rejects type change (Float sent as string)', () => {
     const b = good(); b.data.order.lines[0].price.amount = '1.5';
-    expect(() => validateResponse(Q, b, STRICT)).toThrow(/amount/);
+    expect(() => rawValidate(Q, b, STRICT)).toThrow(/amount/);
   });
   test('rejects a query using a field missing from the schema', () => {
-    expect(() => validateResponse('{ order { doesNotExist } }', { data: { order: null } }, STRICT)).toThrow(/does not exist/);
+    expect(() => rawValidate('{ order { doesNotExist } }', { data: { order: null } }, STRICT)).toThrow(/does not exist/);
   });
 });
