@@ -210,27 +210,28 @@ test.describe.serial('4.4 Order Management UI', () => {
             const partialRefundInDB = await query('SELECT * FROM payment_payment WHERE order_id = $1', [paymentUUID[0].id]);
             console.log('Payment after partial refund is: ', partialRefundInDB);
             console.log('Listed price retrieved is: ', listedPrice);
+
             expect(partialRefundStatus.toLowerCase().trim()).toBe('partially returned');
             expect(partialRefundInDB[0].charge_status.trim()).toBe('partially-refunded');
             expect(Number(partialRefundInDB[0].total) - Number(partialRefundInDB[0].captured_amount)).toBeCloseTo(Number(listedPrice));
-            const paymentTransactionAfterPartialRefund = await query('SELECT kind, amount FROM payment_transaction WHERE payment_id = $1', [partialRefundInDB[0].id]);
-            expect(Number(paymentTransactionAfterPartialRefund[paymentTransactionAfterPartialRefund.length - 1].amount)).toBe(Number(listedPrice));
-            expect(paymentTransactionAfterPartialRefund[paymentTransactionAfterPartialRefund.length - 1].kind.trim()).toBe('refund');
+
+            const txs = await query(
+                'SELECT id, kind, amount FROM payment_transaction WHERE payment_id = $1 ORDER BY id',
+                [partialRefundInDB[0].id]
+            );
+            console.log('Transactions after partial refund:', txs);
+            const refundTx = txs.filter(t => t.kind.trim() === 'refund');
+            expect(refundTx).toHaveLength(1);
+            expect(Number(refundTx[0].amount)).toBeCloseTo(Number(listedPrice));
+
             const orderStatus = await orderPage.processRefund();
             expect(orderStatus.toLowerCase().trim()).toBe('returned');
-            await page.pause();
+
             const result = await query('SELECT * FROM payment_payment WHERE order_id = $1', [paymentUUID[0].id]);
             console.log('Result after order return is: ', result[0]);
-            await page.pause();
-            // const refundKind = await query('SELECT kind, amount FROM payment_transaction WHERE payment_id = $1', [result[0].id]);
-            // expect(refundKind[refundKind.length - 1].kind.toLowerCase().trim()).toBe('refund');
-            // for(let refund of refundKind){
-            //     console.log(`Refund kind is ${refund.kind} and amount is ${refund.amount}`);
-            // }
-            // console.log(`Transaction kind is ${refundKind[0].kind} and amount is ${refundKind[0].amount}`);
             expect(result[0].charge_status.trim()).toBe('fully-refunded');
             expect(Number(result[0].captured_amount)).toBe(0.00);
-        })
+        });
     })
 
     test('G. Pagination / Large Dataset Handling (P0 — do NOT skip given known seed data volume)', async ({ page, createOrder }) => {
