@@ -18,6 +18,9 @@ pipeline {
         INFLUXDB_URL = 'http://localhost:8086/k6'
         GRAFANA_URL = 'http://localhost:3000/d/saleor-k6-perf'
         CI = 'true'
+        // Contract validation mode for utils/response-validator.js. strict is also the
+        // code default; set explicitly so the pipeline documents (and pins) the mode.
+        SCHEMA_VALIDATE = 'strict'
     }
 
     stages {
@@ -104,7 +107,7 @@ pipeline {
             }
         }
 
-        stage('Run Playwright suite (api + ui)') {
+        stage('Run Playwright suite (api + ui, excluding @throttle)') {
             steps {
                 // Single invocation runs BOTH the api and ui projects defined in
                 // playwright.config.js, producing one combined HTML report.
@@ -112,6 +115,10 @@ pipeline {
                 // --project=X` calls — two invocations would each regenerate
                 // playwright-report/ from scratch, so the second would silently
                 // overwrite the first's report.
+                //
+                // @throttle tests (login rate-limit tests) are excluded here and run
+                // in their own stage below: Saleor's login throttle is per IP, so they
+                // must never run concurrently with anything else that logs in.
                 withCredentials([
                     string(credentialsId: 'SALEOR_ADMIN_EMAIL', variable: 'ADMIN_EMAIL'),
                     string(credentialsId: 'SALEOR_ADMIN_PASSWORD', variable: 'ADMIN_PASSWORD'),
@@ -120,10 +127,55 @@ pipeline {
                     string(credentialsId: 'SALEOR_DATABASE_URL', variable: 'DATABASE_URL')
                 ]) {
                     script {
-                        def exitCode = powershell(script: 'npx playwright test', returnStatus: true)
+                        def exitCode = powershell(script: 'npx playwright test --grep-invert "@throttle"', returnStatus: true)
                         if (exitCode != 0) {
                             unstable('Playwright tests failed — build marked unstable')
                         }
+                    }
+                }
+            }
+        }
+
+        stage('Run Playwright throttle tests (serial, isolated)') {
+            // Runs AFTER the main suite so nothing else is logging in from this IP.
+            // Own report/JSON/output folders: Playwright wipes its outputDir at the
+            // start of every run, so sharing test-results/ would erase the main
+            // run's results.json and schema-coverage files.
+            steps {
+                withCredentials([
+                    string(credentialsId: 'SALEOR_ADMIN_EMAIL', variable: 'ADMIN_EMAIL'),
+                    string(credentialsId: 'SALEOR_ADMIN_PASSWORD', variable: 'ADMIN_PASSWORD'),
+                    string(credentialsId: 'SALEOR_LIMITED_ACCESS_USER_EMAIL', variable: 'LIMITED_ACCESS_USER_EMAIL'),
+                    string(credentialsId: 'SALEOR_LIMITED_ACCESS_USER_PASSWORD', variable: 'LIMITED_ACCESS_USER_PASSWORD'),
+                    string(credentialsId: 'SALEOR_DATABASE_URL', variable: 'DATABASE_URL')
+                ]) {
+                    script {
+                        def throttleExit = powershell(
+                            script: '''
+                                $env:PW_HTML_DIR = "playwright-report-throttle"
+                                $env:PW_JSON_FILE = "test-results-throttle/results.json"
+                                npx playwright test --grep "@throttle" --workers=1 --output=test-results-throttle
+                                exit $LASTEXITCODE
+                            ''',
+                            returnStatus: true
+                        )
+                        if (throttleExit != 0) {
+                            unstable('Playwright @throttle tests failed — build marked unstable (see Playwright Throttle Report)')
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Schema coverage report') {
+            // Merges the per-process files written by utils/response-validator.js
+            // (test-results/schema-coverage/<pid>.json) from both Playwright runs.
+            // Archived by post { always } via test-results/**.
+            steps {
+                script {
+                    def coverageExit = powershell(script: 'npm run schema:coverage', returnStatus: true)
+                    if (coverageExit != 0) {
+                        unstable('npm run schema:coverage failed — schema-coverage.json was not produced')
                     }
                 }
             }
@@ -296,7 +348,18 @@ pipeline {
                 reportFiles: 'index.html',
                 reportName: 'Playwright Report'
             ])
+            // Throttle run: separate report + results (see throttle stage above).
+            // allowMissing: true so a build that never reached that stage still publishes.
+            publishHTML(target: [
+                allowMissing: true,
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: 'playwright-report-throttle',
+                reportFiles: 'index.html',
+                reportName: 'Playwright Throttle Report'
+            ])
             archiveArtifacts artifacts: 'test-results/**', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'test-results-throttle/**', allowEmptyArchive: true
             archiveArtifacts artifacts: 'reports/*.html', allowEmptyArchive: true
         }
         success {

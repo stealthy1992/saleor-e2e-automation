@@ -333,20 +333,25 @@ test.describe.serial('This will test the entire login module', () => {
             await loginPage.pageRestrictedWith404();
         })
     })
-
-    // Moved inside the serial block — this now inherits ordering (runs only after
-    // every test above completes) and runs on the same worker, which also
-    // eliminates the risk of concurrent tokenCreate calls tripping shared
-    // rate-limit state across workers.
-    staffTest('H. Verifying limited staff has MANAGE_PRODUCTS in permissions array', async ({ limitedStaffToken }) => {
-
-        let mePermissions = null;
-        const ctx = await pwRequest.newContext({ baseURL: process.env.SALEOR_API_URL });
-        const { data } = await graphqlRequest(ctx, `
-                query Me { me { userPermissions { code name } } }
-            `, {}, limitedStaffToken);
-        mePermissions = data.me.userPermissions;
-        const codes = mePermissions.map(p => p.code);
-        expect(codes).toEqual(['MANAGE_PRODUCTS']);
-    })
 })
+
+// File level — OUTSIDE test.describe.serial(...). Delete the "Moved inside the serial block" comment.
+staffTest(
+    'H. Verifying limited staff has MANAGE_PRODUCTS in permissions array',
+    { tag: '@throttle' },
+    async ({ limitedStaffToken }) => {
+        const ctx = await pwRequest.newContext({ baseURL: process.env.SALEOR_API_URL });
+        try {
+            const { data } = await graphqlRequest(
+                ctx,
+                `query Me { me { userPermissions { code name } } }`,
+                {},
+                limitedStaffToken
+            );
+            const codes = data.me.userPermissions.map(p => p.code);
+            expect(codes).toEqual(['MANAGE_PRODUCTS'])
+        } finally {
+            await ctx.dispose();
+        }
+    }
+);
