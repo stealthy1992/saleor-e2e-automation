@@ -34,7 +34,14 @@ test.describe('This will test promotion rules vis-a-vis products/variants', () =
         // index to scope every locator against.
         // await promotionPage.applyConditionOn(rowIndex, ruleInfo.appliedOnName);
         const totalLoaded = await promotionPage.scrollConditionDropdownToLoadAll(rowIndex);
-        const dbCount = (await query('SELECT COUNT(*) FROM product_productvariant'))[0].count;
+        const dbCount = (await query(
+            `SELECT COUNT(DISTINCT v.id) AS count
+             FROM product_productvariant v
+             JOIN product_productvariantchannellisting l ON l.variant_id = v.id
+             JOIN channel_channel c ON c.id = l.channel_id
+             WHERE c.name = $1`,
+            [ruleInfo.channel]
+        ))[0].count;
         expect(totalLoaded).toBe(Number(dbCount));
         const addedRuleList = await promotionPage.applyConditionOn(rowIndex, ruleInfo.appliedOnName);
         const match = addedRuleList.find(item => item.ruleName.trim() === ruleInfo.name);
