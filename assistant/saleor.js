@@ -84,4 +84,32 @@ async function getCurrentApp() {
   return data.app;
 }
 
-module.exports = { gql, flattenBlocks, getPolicyText, getProductByName, getCurrentApp };
+async function getOrder(number, email) {
+  const data = await gql(
+    `query OrderByNumber($numbers: [String!]) {
+       orders(first: 1, filter: { numbers: $numbers }) {
+         edges { node {
+           number
+           status
+           paymentStatus
+           chargeStatus
+           userEmail
+           channel { slug }
+           total { gross { amount currency } }
+           shippingPrice { gross { amount currency } }
+           lines { productName quantity }
+         } }
+       }
+     }`,
+    { numbers: [String(number)] },
+    { auth: true }
+  );
+  const edge = data.orders.edges[0];
+  if (!edge) return null;
+  const node = edge.node;
+  // Same result for "no such order" and "wrong email": no order-number enumeration.
+  if ((node.userEmail || '').trim().toLowerCase() !== String(email).trim().toLowerCase()) return null;
+  return node;
+}
+
+module.exports = { gql, flattenBlocks, getPolicyText, getProductByName, getCurrentApp, getOrder };
