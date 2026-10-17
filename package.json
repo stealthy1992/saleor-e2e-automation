@@ -8,7 +8,8 @@
     "report": "playwright show-report",
     "schema:snapshot": "node scripts/snapshot-schema.js",
     "test:contract": "playwright test --project=api --grep @contract",
-    "schema:coverage": "node scripts/schema-coverage-report.js"
+    "schema:coverage": "node scripts/schema-coverage-report.js",
+    "assistant:check": "node assistant/check-saleor.js"
   },
   "dependencies": {
     "@playwright/test": "^1.48.0",
