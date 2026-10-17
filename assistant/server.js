@@ -1,12 +1,24 @@
 const http = require('http');
-const { getPolicyText } = require('./saleor');
-const { buildPrompt } = require('./prompt');
+const { getPolicyText, getOrder } = require('./saleor');
+const { buildPrompt, buildOrderPrompt } = require('./prompt');
+const { extractOrderRef } = require('./router');
 const llm = require('./llm');
 
 const PORT = Number(process.env.ASSISTANT_PORT || 3100);
 const POLICY_TTL_MS = Number(process.env.POLICY_TTL_MS || 60000);
 const MAX_BODY = 10 * 1024;
 const MAX_MESSAGE = 1000;
+
+const ASK_EMAIL = {
+  answer: 'To look up that order, please send the email address used when placing it.',
+  clauses: [],
+  label: 'AMBIGUOUS',
+};
+const ORDER_NOT_FOUND = {
+  answer: "I couldn't find an order matching that number and email. Please check both and try again, or contact support.",
+  clauses: [],
+  label: 'NOT_COVERED',
+};
 
 let policyCache = { text: null, at: 0 };
 
@@ -49,6 +61,19 @@ function readBody(req) {
   });
 }
 
+// Only facts the model may use; the customer email is left out on purpose.
+function orderFacts(order) {
+  return {
+    number: order.number,
+    status: order.status,
+    paymentStatus: order.paymentStatus,
+    chargeStatus: order.chargeStatus,
+    total: order.total.gross,
+    shippingPrice: order.shippingPrice.gross,
+    lines: order.lines,
+  };
+}
+
 async function handleChat(req, res) {
   let raw;
   try {
@@ -71,6 +96,24 @@ async function handleChat(req, res) {
   }
 
   const started = Date.now();
+  const ref = extractOrderRef(message);
+
+  if (ref.number && !ref.email) {
+    console.log('order lookup: email missing');
+    return send(res, 200, ASK_EMAIL);
+  }
+
+  let order = null;
+  if (ref.number && ref.email) {
+    try {
+      order = await getOrder(ref.number, ref.email);
+    } catch (e) {
+      console.error('order error:', e.message);
+      return send(res, 502, { error: 'order_lookup_unavailable' });
+    }
+    console.log(`order lookup: ${order ? 'found' : 'not found'}`);
+    if (!order) return send(res, 200, ORDER_NOT_FOUND);
+  }
 
   let policy;
   try {
@@ -80,9 +123,13 @@ async function handleChat(req, res) {
     return send(res, 502, { error: 'policy_unavailable' });
   }
 
+  const prompt = order
+    ? buildOrderPrompt(policy, message, orderFacts(order))
+    : buildPrompt(policy, message);
+
   let text;
   try {
-    text = await llm.complete({ prompt: buildPrompt(policy, message), question: message });
+    text = await llm.complete({ prompt, question: message });
   } catch (e) {
     console.error('llm error:', e.message);
     return send(res, 502, { error: 'llm_error' });
