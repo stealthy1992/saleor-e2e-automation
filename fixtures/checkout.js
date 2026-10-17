@@ -4,6 +4,22 @@ const { graphqlRequest } = require('../utils/graphql-client');
 const { pool, query } = require('../utils/db-client'); // adjust path if db-client.js lives elsewhere
 
 const DEFAULT_WAREHOUSE_ID = 'V2FyZWhvdXNlOjhlYjMxODE0LTNmYTgtNDA5My1hMGZkLTFiZmU1YmQ3NzQxOA==';
+const US_ADDRESS = {
+    firstName: "Checkout", lastName: "Tester",
+    streetAddress1: "350 5th Avenue", streetAddress2: "Suite 7500",
+    city: "New York", countryArea: "NY", postalCode: "10118", country: "US"
+};
+
+const PK_ADDRESS = {
+    firstName: "Checkout", lastName: "Tester",
+    streetAddress1: "12 Mall Road", streetAddress2: "Suite 7",
+    city: "Lahore", postalCode: "54000", country: "PK"
+};
+
+const DEFAULT_ADDRESSES = {
+    'default-channel': US_ADDRESS,
+    'channel-pkr': PK_ADDRESS,
+};
 
 // Saleor's GraphQL IDs are Relay global IDs — base64("TypeName:<raw pk>") —
 // not the raw Postgres primary key. order.id from checkoutComplete looks like
@@ -105,7 +121,7 @@ exports.test = productTest.extend({
             const ctx = await pwRequest.newContext({ baseURL: process.env.SALEOR_API_URL });
             const createdOrderIds = [];
 
-            async function resolveVariantId(productName) {
+            async function resolveVariantId(productName, channel) {
                 // GraphQL's `search` filter depends on product_product.search_vector, which
                 // is only populated by a Celery Beat task (documented elsewhere as
                 // unreliable) or a manual reindex trigger. On a fresh CI seed, that index
@@ -125,22 +141,25 @@ exports.test = productTest.extend({
                             variants { id name quantityAvailable }
                         }
                     }
-                `, { id: globalProductId, channel: "default-channel" });
+                `, { id: globalProductId, channel });
 
                 const product = data.product;
-                if (!product) throw new Error(`createOrder: product "${productName}" (db id ${rows[0].id}) not returned via GraphQL — check its channel listing`);
+                if (!product) throw new Error(`createOrder: product "${productName}" (db id ${rows[0].id}) not returned via GraphQL in channel "${channel}" — check its channel listing`);
 
                 const variant = product.variants.find(v => v.quantityAvailable > 0);
-                if (!variant) throw new Error(`createOrder: product "${productName}" has no variant with available stock`);
+                if (!variant) throw new Error(`createOrder: product "${productName}" has no variant with available stock in channel "${channel}"`);
                 return variant.id;
             }
 
-            async function createOrder({ lineItems, email, partialFulfillmentProductNames = [] }) {
+            async function createOrder({ lineItems, email, partialFulfillmentProductNames = [], channel = 'default-channel', address }) {
                 if (!email) throw new Error('createOrder: an email is required');
+
+                const orderAddress = address || DEFAULT_ADDRESSES[channel];
+                if (!orderAddress) throw new Error(`createOrder: no default address for channel "${channel}" — pass an address`);
 
                 const resolvedLines = [];
                 for (const { name, quantity } of lineItems) {
-                    resolvedLines.push({ quantity, variantId: await resolveVariantId(name) });
+                    resolvedLines.push({ quantity, variantId: await resolveVariantId(name, channel) });
                 }
 
                 // Guest checkout — no customerToken passed anywhere below. This keeps
@@ -157,19 +176,11 @@ exports.test = productTest.extend({
                 `, {
                     input: {
                         email,
-                        channel: "default-channel",
+                        channel,
                         lines: resolvedLines,
-                        shippingAddress: {
-                            firstName: "Checkout", lastName: "Tester",
-                            streetAddress1: "350 5th Avenue", streetAddress2: "Suite 7500",
-                            city: "New York", countryArea: "NY", postalCode: "10118", country: "US"
-                        },
+                        shippingAddress: orderAddress,
                         saveBillingAddress: true,
-                        billingAddress: {
-                            firstName: "Checkout", lastName: "Tester",
-                            streetAddress1: "350 5th Avenue", streetAddress2: "Suite 7500",
-                            city: "New York", countryArea: "NY", postalCode: "10118", country: "US"
-                        },
+                        billingAddress: orderAddress,
                     }
                 });
                 if (createData.checkoutCreate.errors.length) {
