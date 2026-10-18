@@ -129,7 +129,7 @@ async function complete({ prompt, question }) {
     throw new LlmError(`unknown LLM_PROVIDER "${s.provider}"`);
 }
 
-// Temporary hand check; replaced by an Ajv schema (schemas/chat.js) in the next step.
+// Hand check plus clause cleanup; schemas/chat.js is the strict final guard in the server.
 function parseReply(text) {
     const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
     let data;
@@ -142,7 +142,9 @@ function parseReply(text) {
     if (typeof data.answer !== 'string' || !data.answer.trim()) throw new ReplyError('answer missing');
     if (!Array.isArray(data.clauses) || data.clauses.some((c) => typeof c !== 'string')) throw new ReplyError('clauses invalid');
     if (!LABELS.includes(data.label)) throw new ReplyError('label invalid');
-    return { answer: data.answer, clauses: data.clauses, label: data.label };
+    const tokens = data.clauses.flatMap((c) => c.match(/\d+\.\d+/g) || []);
+    const clauses = [...new Set(tokens)];
+    return { answer: data.answer, clauses, label: data.label };
 }
 
 module.exports = { complete, parseReply, info, describe, LABELS, LlmError, ReplyError };

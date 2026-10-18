@@ -3,6 +3,7 @@ const { getPolicyText, getOrder } = require('./saleor');
 const { buildPrompt, buildOrderPrompt } = require('./prompt');
 const { extractOrderRef } = require('./router');
 const llm = require('./llm');
+const { validateChat } = require('../schemas/chat');
 
 const PORT = Number(process.env.ASSISTANT_PORT || 3100);
 const POLICY_TTL_MS = Number(process.env.POLICY_TTL_MS || 60000);
@@ -143,6 +144,11 @@ async function handleChat(req, res) {
     return send(res, 502, { error: 'invalid_model_reply' });
   }
 
+  const check = validateChat('chatReply', reply);
+  if (!check.valid) {
+    console.error('reply schema error:', check.errors.join('; '));
+    return send(res, 502, { error: 'invalid_model_reply' });
+  }
   console.log(`chat ok: ${llm.describe()} label=${reply.label} ${Date.now() - started}ms`);
   return send(res, 200, reply);
 }
