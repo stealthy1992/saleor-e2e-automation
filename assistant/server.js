@@ -3,6 +3,7 @@ const { getPolicyText, getOrder } = require('./saleor');
 const { buildPrompt, buildOrderPrompt } = require('./prompt');
 const { extractOrderRef } = require('./router');
 const llm = require('./llm');
+const { serveStatic } = require('./static');
 const { validateChat } = require('../schemas/chat');
 
 const PORT = Number(process.env.ASSISTANT_PORT || 3100);
@@ -156,6 +157,7 @@ async function handleChat(req, res) {
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
+        if (serveStatic(req, res, url.pathname)) return;
     if (req.method === 'GET' && url.pathname === '/health') {
       return send(res, 200, { status: 'ok', ...llm.info() });
     }
