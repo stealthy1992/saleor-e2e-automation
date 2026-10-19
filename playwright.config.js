@@ -38,5 +38,17 @@ module.exports = defineConfig({
         trace: 'retain-on-failure',
       },
     },
+    {
+      name: 'chat',
+      testDir: './tests/chat',
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: process.env.ASSISTANT_URL || 'http://localhost:3100',
+        headless: true,
+        screenshot: 'only-on-failure',
+        video: 'retain-on-failure',
+        trace: 'retain-on-failure',
+      },
+    },
   ],
 });
