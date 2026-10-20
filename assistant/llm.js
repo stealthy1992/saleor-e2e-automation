@@ -1,7 +1,11 @@
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
-const LABELS = ['ANSWERABLE', 'NOT_COVERED', 'CONFLICT', 'AMBIGUOUS'];
+const LABELS = ['ANSWERABLE', 'NOT_COVERED', 'CONFLICT', 'AMBIGUOUS', 'OFF_TOPIC'];
+
+// Fixed reply for OFF_TOPIC: the model's own text is discarded.
+const SCOPE_MESSAGE =
+    "Hi! I can help with Tulip & Teak delivery, payment, returns and exchanges, and with the status of your order (send your order number and email). What would you like to know?";
 
 class LlmError extends Error { }
 class ReplyError extends Error { }
@@ -114,6 +118,14 @@ async function callStub(question, prompt) {
             label: 'ANSWERABLE',
         });
     }
+    // A bare greeting or thanks on its own (nothing else in the message).
+    if (/^\s*(hi|hello|hey|salam|thanks|thank you|bye)\W*$/i.test(question)) {
+        return JSON.stringify({
+            answer: 'STUB: greeting.',
+            clauses: [],
+            label: 'OFF_TOPIC',
+        });
+    }
     return JSON.stringify({
         answer: 'STUB: the policy does not cover this, please contact support.',
         clauses: [],
@@ -139,12 +151,14 @@ function parseReply(text) {
         throw new ReplyError('model reply is not valid JSON');
     }
     if (!data || typeof data !== 'object' || Array.isArray(data)) throw new ReplyError('model reply is not an object');
+    if (!LABELS.includes(data.label)) throw new ReplyError('label invalid');
+    // OFF_TOPIC: the model only chooses the label; the customer sees the fixed scope message.
+    if (data.label === 'OFF_TOPIC') return { answer: SCOPE_MESSAGE, clauses: [], label: 'OFF_TOPIC' };
     if (typeof data.answer !== 'string' || !data.answer.trim()) throw new ReplyError('answer missing');
     if (!Array.isArray(data.clauses) || data.clauses.some((c) => typeof c !== 'string')) throw new ReplyError('clauses invalid');
-    if (!LABELS.includes(data.label)) throw new ReplyError('label invalid');
     const tokens = data.clauses.flatMap((c) => c.match(/\d+\.\d+/g) || []);
     const clauses = [...new Set(tokens)];
     return { answer: data.answer, clauses, label: data.label };
 }
 
-module.exports = { complete, parseReply, info, describe, LABELS, LlmError, ReplyError };
+module.exports = { complete, parseReply, info, describe, LABELS, SCOPE_MESSAGE, LlmError, ReplyError };

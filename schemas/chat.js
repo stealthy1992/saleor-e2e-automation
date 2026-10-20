@@ -2,7 +2,7 @@
 const Ajv = require('ajv');
 const { obj, arr, str, enumOf } = require('./helpers');
 
-const LABELS = ['ANSWERABLE', 'NOT_COVERED', 'CONFLICT', 'AMBIGUOUS'];
+const LABELS = ['ANSWERABLE', 'NOT_COVERED', 'CONFLICT', 'AMBIGUOUS', 'OFF_TOPIC'];
 
 // POST /api/chat success body. Strict: every key required, no extra keys.
 const chatReply = obj({
