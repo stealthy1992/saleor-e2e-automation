@@ -107,9 +107,56 @@ pipeline {
             }
         }
 
-        stage('Run Playwright suite (api + ui, excluding @throttle)') {
+        stage('Start support assistant (stub provider)') {
+            // The chat Playwright project and the k6 chat-flow scenario both need the
+            // assistant on :3100. Stub provider: deterministic, no Gemini quota, no API
+            // key in Jenkins. Model quality is measured by the eval harness, not here.
+            // Needs a Jenkins "Secret text" credential with id SALEOR_APP_TOKEN.
             steps {
-                // Single invocation runs BOTH the api and ui projects defined in
+                withCredentials([string(credentialsId: 'SALEOR_APP_TOKEN', variable: 'APP_TOKEN')]) {
+                    powershell '''
+                        # assistant/saleor.js appends /graphql/ itself, so it needs the BASE url.
+                        # The pipeline-wide SALEOR_API_URL already ends in /graphql/.
+                        $env:SALEOR_API_URL = "http://localhost:8000"
+                        $env:SALEOR_APP_TOKEN = $env:APP_TOKEN
+                        $env:LLM_PROVIDER = "stub"
+                        $env:STUB_LATENCY_MS = "200"
+
+                        $p = Start-Process -FilePath "node" -ArgumentList "assistant/server.js" `
+                            -PassThru -WindowStyle Hidden `
+                            -RedirectStandardOutput "assistant.out.log" `
+                            -RedirectStandardError "assistant.err.log"
+                        Set-Content -Path "assistant.pid" -Value $p.Id
+                        Write-Host "assistant started, pid $($p.Id)"
+
+                        $ready = $false
+                        for ($i = 1; $i -le 30; $i++) {
+                            try {
+                                $h = Invoke-RestMethod -Uri "http://localhost:3100/health" -TimeoutSec 3
+                                if ($h.provider -eq "stub") {
+                                    Write-Host "Assistant is up (stub)"
+                                    $ready = $true
+                                } else {
+                                    Write-Host "Assistant reports provider $($h.provider), expected stub"
+                                }
+                                break
+                            } catch {
+                                Write-Host "Waiting for assistant... ($i/30)"
+                                Start-Sleep -Seconds 2
+                            }
+                        }
+                        if (-not $ready) {
+                            Get-Content assistant.err.log -ErrorAction SilentlyContinue
+                            exit 1
+                        }
+                    '''
+                }
+            }
+        }
+
+        stage('Run Playwright suite (api + ui + chat, excluding @throttle)') {
+            steps {
+                // Single invocation runs the api, ui and chat projects defined in
                 // playwright.config.js, producing one combined HTML report.
                 // Deliberately NOT split into two separate `npx playwright test
                 // --project=X` calls — two invocations would each regenerate
@@ -124,7 +171,8 @@ pipeline {
                     string(credentialsId: 'SALEOR_ADMIN_PASSWORD', variable: 'ADMIN_PASSWORD'),
                     string(credentialsId: 'SALEOR_LIMITED_ACCESS_USER_EMAIL', variable: 'LIMITED_ACCESS_USER_EMAIL'),
                     string(credentialsId: 'SALEOR_LIMITED_ACCESS_USER_PASSWORD', variable: 'LIMITED_ACCESS_USER_PASSWORD'),
-                    string(credentialsId: 'SALEOR_DATABASE_URL', variable: 'DATABASE_URL')
+                    string(credentialsId: 'SALEOR_DATABASE_URL', variable: 'DATABASE_URL'),
+                    string(credentialsId: 'SALEOR_APP_TOKEN', variable: 'SALEOR_APP_TOKEN')
                 ]) {
                     script {
                         def exitCode = powershell(script: 'npx playwright test --grep-invert "@throttle"', returnStatus: true)
@@ -263,6 +311,28 @@ pipeline {
             }
         }
 
+        stage('Run k6 chat-flow (assistant, stub)') {
+            // Not gated on the product-id parameters: chat-flow needs neither.
+            // The scenario's setup() refuses to run unless /health reports the stub,
+            // so this can never spend Gemini quota.
+            steps {
+                script {
+                    def chatFlowExit = powershell(
+                        script: '''
+                            k6 run tests/k6/scenarios/chat-flow.js `
+                                --out influxdb=$env:INFLUXDB_URL `
+                                -e ASSISTANT_URL=http://localhost:3100
+                        ''',
+                        returnStatus: true
+                    )
+                    if (chatFlowExit != 0) {
+                        unstable('k6 chat-flow thresholds breached or the run failed — build marked unstable')
+                    }
+                    echo "View results: ${env.GRAFANA_URL}"
+                }
+            }
+        }
+
         stage('Clean up perf test data') {
             environment {
                 DATABASE_URL = 'postgres://saleor:saleor@127.0.0.1:5432/saleor'
@@ -336,6 +406,13 @@ pipeline {
 
     post {
         always {
+            // Stop the assistant started for the chat tests (no-op if that stage never ran).
+            powershell '''
+                if (Test-Path assistant.pid) {
+                    Stop-Process -Id ([int](Get-Content assistant.pid)) -Force -ErrorAction SilentlyContinue
+                    Remove-Item assistant.pid -ErrorAction SilentlyContinue
+                }
+            '''
             // Requires the HTML Publisher plugin.
             // CSP note: run System.setProperty("hudson.model.DirectoryBrowserSupport.CSP", "")
             // in Manage Jenkins > Script Console before triggering the build —
@@ -361,6 +438,7 @@ pipeline {
             archiveArtifacts artifacts: 'test-results/**', allowEmptyArchive: true
             archiveArtifacts artifacts: 'test-results-throttle/**', allowEmptyArchive: true
             archiveArtifacts artifacts: 'reports/*.html', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'assistant.*.log', allowEmptyArchive: true
         }
         success {
             echo 'All tests passed.'
