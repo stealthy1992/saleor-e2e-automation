@@ -122,10 +122,13 @@ pipeline {
                         $env:LLM_PROVIDER = "stub"
                         $env:STUB_LATENCY_MS = "200"
 
-                        $p = Start-Process -FilePath "node" -ArgumentList "assistant/server.js" `
-                            -PassThru -WindowStyle Hidden `
-                            -RedirectStandardOutput "assistant.out.log" `
-                            -RedirectStandardError "assistant.err.log"
+                        # No -RedirectStandard* parameters on purpose: they make Start-Process hand
+                        # this step's inherited handles to the child, and Jenkins then waits for the
+                        # child (the server, forever) before it lets the step finish. cmd does the
+                        # redirection itself instead. The pid is cmd's; the stop uses taskkill /T.
+                        $p = Start-Process -FilePath "cmd.exe" `
+                            -ArgumentList '/c node assistant/server.js > assistant.out.log 2> assistant.err.log' `
+                            -PassThru -WindowStyle Hidden
                         Set-Content -Path "assistant.pid" -Value $p.Id
                         Write-Host "assistant started, pid $($p.Id)"
 
@@ -409,9 +412,10 @@ pipeline {
             // Stop the assistant started for the chat tests (no-op if that stage never ran).
             powershell '''
                 if (Test-Path assistant.pid) {
-                    Stop-Process -Id ([int](Get-Content assistant.pid)) -Force -ErrorAction SilentlyContinue
+                    taskkill /PID ([int](Get-Content assistant.pid)) /T /F | Out-Null
                     Remove-Item assistant.pid -ErrorAction SilentlyContinue
                 }
+                exit 0
             '''
             // Requires the HTML Publisher plugin.
             // CSP note: run System.setProperty("hudson.model.DirectoryBrowserSupport.CSP", "")
