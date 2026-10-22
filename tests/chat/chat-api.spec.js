@@ -63,7 +63,7 @@ test.describe('Assistant HTTP API (stub provider)', () => {
         expect(res.status()).toBe(400);
         expect(await res.json()).toEqual({ error: 'body must be valid JSON' });
     });
-    
+
     test('CHAT-API-003: GET /api/chat gives 405', async ({ request }) => {
         const res = await request.get('/api/chat');
         expect(res.status()).toBe(405);
@@ -80,5 +80,26 @@ test.describe('Assistant HTTP API (stub provider)', () => {
         const res = await request.get('/health');
         expect(res.status()).toBe(200);
         expect(await res.json()).toEqual({ status: 'ok', provider: 'stub', model: 'stub' });
+    });
+    
+    const SCOPE_MESSAGE =
+        "Hi! I can help with Tulip & Teak delivery, payment, returns and exchanges, and with the status of your order (send your order number and email). What would you like to know?";
+
+    for (const message of ['Hi', 'thanks!', 'Salam', 'bye']) {
+        test(`CHAT-API-004: bare "${message}" gives OFF_TOPIC with the fixed scope message`, async ({ request }) => {
+            const res = await post(request, { message });
+            expect(res.status()).toBe(200);
+            const body = await res.json();
+            expect(validateChat('chatReply', body).errors).toEqual([]);
+            expect(body).toEqual({ answer: SCOPE_MESSAGE, clauses: [], label: 'OFF_TOPIC' });
+        });
+    }
+
+    test('CHAT-API-004: greeting with a store question is not OFF_TOPIC', async ({ request }) => {
+        const res = await post(request, { message: 'Hi, how long does delivery take?' });
+        expect(res.status()).toBe(200);
+        const body = await res.json();
+        expect(validateChat('chatReply', body).errors).toEqual([]);
+        expect(body).toMatchObject({ label: 'ANSWERABLE', clauses: ['3.1'] });
     });
 });
