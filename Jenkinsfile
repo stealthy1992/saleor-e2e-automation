@@ -156,6 +156,30 @@ pipeline {
                 }
             }
         }
+        
+        stage('Policy drift check (Saleor page vs policy_v1_1.md)') {
+            // Reads policy_v1_1.md from the policy repo on this PC (never from the Saleor repo,
+            // which is public and must not hold cases/). The script prints SKIP and exits 0 if the
+            // file is absent. Drift or an error marks the build unstable, so the tests still run.
+            environment {
+                EVAL_HARNESS_DIR = 'E:\\ollama-project'
+            }
+            steps {
+                script {
+                    def driftExit = powershell(
+                        script: '''
+                            # assistant/saleor.js appends /graphql/ itself, so it needs the BASE url.
+                            $env:SALEOR_API_URL = "http://localhost:8000"
+                            node scripts/policy-diff.js
+                        ''',
+                        returnStatus: true
+                    )
+                    if (driftExit != 0) {
+                        unstable('Policy drift: the Saleor policy page differs from policy_v1_1.md, or the check errored. See console output above.')
+                    }
+                }
+            }
+        }
 
         stage('Run Playwright suite (api + ui + chat, excluding @throttle)') {
             steps {
