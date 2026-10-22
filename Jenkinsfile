@@ -181,6 +181,25 @@ pipeline {
             }
         }
 
+        stage('Prompt parity (prompt-v1 vs policy.py build_prompt)') {
+            // Compares assistant/prompt.js at tag prompt-v1 with build_prompt in policy.py.
+            // Prints SKIP and exits 0 if policy.py or the tag is missing; a mismatch marks the build unstable.
+            environment {
+                EVAL_HARNESS_DIR = 'E:\\ollama-project'
+            }
+            steps {
+                script {
+                    def parityExit = powershell(
+                        script: 'node scripts/prompt-parity.js',
+                        returnStatus: true
+                    )
+                    if (parityExit != 0) {
+                        unstable('Prompt parity: the prompt-v1 JS prompt differs from policy.py build_prompt, or the check errored. See console output above.')
+                    }
+                }
+            }
+        }
+
         stage('Run Playwright suite (api + ui + chat, excluding @throttle)') {
             steps {
                 // Single invocation runs the api, ui and chat projects defined in
