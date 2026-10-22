@@ -6,6 +6,7 @@ const REPLIES = {
   notCovered: { answer: 'The policy does not cover this.', clauses: [], label: 'NOT_COVERED' },
   conflict: { answer: 'The policy contradicts itself on this.', clauses: ['3.1', '4.1'], label: 'CONFLICT' },
   ambiguous: { answer: 'Please send the email used for the order.', clauses: [], label: 'AMBIGUOUS' },
+  offTopic: { answer: 'Hi! I can help with Tulip & Teak delivery, payment, returns and exchanges, and with the status of your order (send your order number and email). What would you like to know?', clauses: [], label: 'OFF_TOPIC' },
 };
 
 // Intercepts POST /api/chat. `reply` is one object, or an array consumed in order (last one repeats).

@@ -12,6 +12,7 @@ const replyCases = [
   ['CHAT-SCHEMA-006 an empty answer is rejected', { ...good, answer: '' }, false],
   ['CHAT-SCHEMA-007 a clause that is not a bare number is rejected', { ...good, clauses: ['Clause 3.1'] }, false],
   ['CHAT-SCHEMA-008 clauses must be an array', { ...good, clauses: '3.1' }, false],
+  ['CHAT-SCHEMA-011 an OFF_TOPIC reply with empty clauses is valid', { ...good, clauses: [], label: 'OFF_TOPIC' }, true],
 ];
 
 const errorCases = [
