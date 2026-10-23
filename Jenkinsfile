@@ -10,6 +10,7 @@ pipeline {
         // tests/k6/scenarios/product-variant-creation.js header comment.
         string(name: 'TEST_PRODUCT_ID', defaultValue: '', description: 'Product ID reserved for k6 variant-creation load test (required)')
         string(name: 'TEST_CHECKOUT_VARIANT_ID', defaultValue: '', description: 'Variant ID with stock, used by k6 to seed its own orders for the refund load test (required)')
+        booleanParam(name: 'RUN_EVAL_GATE', defaultValue: false, description: 'Run the 53-case eval against real Gemini (spends about 53 requests of the daily quota)')
     }
 
     environment {
@@ -379,6 +380,84 @@ pipeline {
             }
         }
 
+        stage('Eval gate (real model, 53 cases)') {
+            // Optional, default off. Second assistant on :3101 with the real provider; the stub on :3100 is untouched.
+            // Fails (unstable) below 40/53, on any OFF_TOPIC or no_label flag, or if the summary is incomplete.
+            when {
+                allOf {
+                    expression { params.RUN_EVAL_GATE }
+                    expression { fileExists('E:/ollama-project/run_eval.py') }
+                }
+            }
+            environment {
+                EVAL_HARNESS_DIR = 'E:/ollama-project'
+            }
+            steps {
+                withCredentials([
+                    string(credentialsId: 'GEMINI_API_KEY', variable: 'GEMINI_KEY'),
+                    string(credentialsId: 'SALEOR_APP_TOKEN', variable: 'APP_TOKEN')
+                ]) {
+                    script {
+                        def gateExit = powershell(
+                            script: '''
+                                $env:SALEOR_API_URL = "http://localhost:8000"
+                                $env:SALEOR_APP_TOKEN = $env:APP_TOKEN
+                                $env:GEMINI_API_KEY = $env:GEMINI_KEY
+                                $env:LLM_PROVIDER = "gemini"
+                                $env:ASSISTANT_PORT = "3101"
+                                Remove-Item Env:STUB_LATENCY_MS -ErrorAction SilentlyContinue
+
+                                $p = Start-Process -FilePath "cmd.exe" `
+                                    -ArgumentList '/c node assistant/server.js > assistant.eval.out.log 2> assistant.eval.err.log' `
+                                    -PassThru -WindowStyle Hidden
+                                Set-Content -Path "assistant.eval.pid" -Value $p.Id
+
+                                $ready = $false
+                                for ($i = 1; $i -le 30; $i++) {
+                                    try {
+                                        $h = Invoke-RestMethod -Uri "http://localhost:3101/health" -TimeoutSec 3
+                                        if ($h.provider -eq "gemini") { $ready = $true } else { Write-Host "Assistant reports provider $($h.provider), expected gemini" }
+                                        break
+                                    } catch {
+                                        Write-Host "Waiting for eval assistant... ($i/30)"
+                                        Start-Sleep -Seconds 2
+                                    }
+                                }
+                                if (-not $ready) {
+                                    Get-Content assistant.eval.err.log -ErrorAction SilentlyContinue
+                                    exit 1
+                                }
+
+                                $env:LLM_PROVIDER = "assistant"
+                                $env:ASSISTANT_URL = "http://localhost:3101"
+                                Push-Location $env:EVAL_HARNESS_DIR
+                                & ".venv/Scripts/python.exe" run_eval.py --split all 2>&1 | Tee-Object -FilePath "$env:WORKSPACE/eval-gate.log"
+                                Pop-Location
+
+                                $log = Get-Content "$env:WORKSPACE/eval-gate.log" -Raw
+                                $all = [regex]::Match($log, 'ALL\\s+(\\d+)/(\\d+)')
+                                $off = [regex]::Match($log, 'flag:off_topic\\s+(\\d+)/')
+                                $nol = [regex]::Match($log, 'flag:no_label\\s+(\\d+)/')
+                                if (-not ($all.Success -and $off.Success -and $nol.Success)) {
+                                    Write-Host "Could not parse the eval summary"
+                                    exit 1
+                                }
+                                $ok = [int]$all.Groups[1].Value
+                                $tot = [int]$all.Groups[2].Value
+                                Write-Host "eval gate: $ok/$tot, off_topic $($off.Groups[1].Value), no_label $($nol.Groups[1].Value)"
+                                if ($tot -ne 53 -or $ok -lt 40 -or $off.Groups[1].Value -ne "0" -or $nol.Groups[1].Value -ne "0") { exit 1 }
+                                exit 0
+                            ''',
+                            returnStatus: true
+                        )
+                        if (gateExit != 0) {
+                            unstable('Eval gate: below 40/53, an OFF_TOPIC or no_label flag, errors (fewer than 53 scored), or the run failed. See eval-gate.log; rerun errored cases with --ids.')
+                        }
+                    }
+                }
+            }
+        }
+
         stage('Clean up perf test data') {
             environment {
                 DATABASE_URL = 'postgres://saleor:saleor@127.0.0.1:5432/saleor'
@@ -460,6 +539,15 @@ pipeline {
                 }
                 exit 0
             '''
+            
+            powershell '''
+                if (Test-Path assistant.eval.pid) {
+                    taskkill /PID ([int](Get-Content assistant.eval.pid)) /T /F | Out-Null
+                    Remove-Item assistant.eval.pid -ErrorAction SilentlyContinue
+                }
+                exit 0
+            '''
+
             // Requires the HTML Publisher plugin.
             // CSP note: run System.setProperty("hudson.model.DirectoryBrowserSupport.CSP", "")
             // in Manage Jenkins > Script Console before triggering the build —
@@ -486,6 +574,7 @@ pipeline {
             archiveArtifacts artifacts: 'test-results-throttle/**', allowEmptyArchive: true
             archiveArtifacts artifacts: 'reports/*.html', allowEmptyArchive: true
             archiveArtifacts artifacts: 'assistant.*.log', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'eval-gate.log', allowEmptyArchive: true
         }
         success {
             echo 'All tests passed.'
