@@ -10,7 +10,7 @@ pipeline {
         // tests/k6/scenarios/product-variant-creation.js header comment.
         string(name: 'TEST_PRODUCT_ID', defaultValue: '', description: 'Product ID reserved for k6 variant-creation load test (required)')
         string(name: 'TEST_CHECKOUT_VARIANT_ID', defaultValue: '', description: 'Variant ID with stock, used by k6 to seed its own orders for the refund load test (required)')
-        booleanParam(name: 'RUN_EVAL_GATE', defaultValue: false, description: 'Run the 53-case eval against real Gemini (spends about 53 requests of the daily quota)')
+        booleanParam(name: 'RUN_EVAL_GATE', defaultValue: false, description: 'Run the 58-case eval against real Gemini (spends about 58 requests of the daily quota)')
     }
 
     environment {
@@ -380,9 +380,9 @@ pipeline {
             }
         }
 
-        stage('Eval gate (real model, 53 cases)') {
+        stage('Eval gate (real model, 58 cases)') {
             // Optional, default off. Second assistant on :3101 with the real provider; the stub on :3100 is untouched.
-            // Fails (unstable) below 40/53, on any OFF_TOPIC or no_label flag, or if the summary is incomplete.
+            // Fails (unstable) below 41/58, on any OFF_TOPIC or no_label flag, or if the summary is incomplete.
             when {
                 allOf {
                     expression { params.RUN_EVAL_GATE }
@@ -445,13 +445,13 @@ pipeline {
                                 $ok = [int]$all.Groups[1].Value
                                 $tot = [int]$all.Groups[2].Value
                                 Write-Host "eval gate: $ok/$tot, off_topic $($off.Groups[1].Value), no_label $($nol.Groups[1].Value)"
-                                if ($tot -ne 53 -or $ok -lt 40 -or $off.Groups[1].Value -ne "0" -or $nol.Groups[1].Value -ne "0") { exit 1 }
+                                if ($tot -ne 58 -or $ok -lt 41 -or $off.Groups[1].Value -ne "0" -or $nol.Groups[1].Value -ne "0") { exit 1 }
                                 exit 0
                             ''',
                             returnStatus: true
                         )
                         if (gateExit != 0) {
-                            unstable('Eval gate: below 40/53, an OFF_TOPIC or no_label flag, errors (fewer than 53 scored), or the run failed. See eval-gate.log; rerun errored cases with --ids.')
+                            unstable('Eval gate: below 41/58, an OFF_TOPIC or no_label flag, errors (fewer than 58 scored), or the run failed. See eval-gate.log; rerun errored cases with --ids.')
                         }
                     }
                 }
