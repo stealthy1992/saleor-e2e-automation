@@ -10,6 +10,10 @@ const SCOPE_MESSAGE =
 class LlmError extends Error { }
 class ReplyError extends Error { }
 
+// One bounded retry on Gemini overload (503) or rate limit (429). Never on timeouts or other errors.
+const RETRY_STATUSES = [429, 503];
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const GEMINI_SCHEMA = {
     type: 'OBJECT',
     properties: {
@@ -55,7 +59,7 @@ async function callGemini(prompt, { model, temperature, timeoutMs }) {
     const key = process.env.GEMINI_API_KEY;
     if (!key) throw new LlmError('GEMINI_API_KEY is not set');
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-    const res = await fetch(url, {
+    const request = () => fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
         body: JSON.stringify({
@@ -68,6 +72,13 @@ async function callGemini(prompt, { model, temperature, timeoutMs }) {
         }),
         signal: AbortSignal.timeout(timeoutMs),
     });
+    let res = await request();
+    if (RETRY_STATUSES.includes(res.status)) {
+        await res.text();
+        console.log(`llm retry: gemini HTTP ${res.status}`);
+        await sleep(Number(process.env.LLM_RETRY_DELAY_MS ?? 2000));
+        res = await request();
+    }
     if (!res.ok) {
         const detail = (await res.text()).slice(0, 300);
         throw new LlmError(`gemini HTTP ${res.status}: ${detail}`);
