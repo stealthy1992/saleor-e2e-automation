@@ -8,7 +8,7 @@ allure-report/
 
 playwright/.auth/
 
-# k6 performance test reports (generated per run — folder itself is tracked via reports/.gitkeep)
+# k6 performance test reports (generated per run ??? folder itself is tracked via reports/.gitkeep)
 reports/*.html
 
 # k6 raw output artifacts, if you ever run with --out json or --summary-export
@@ -18,3 +18,4 @@ k6-summary.json
 # throttle-tag run output
 test-results-throttle/
 playwright-report-throttle/
+agent/private/
