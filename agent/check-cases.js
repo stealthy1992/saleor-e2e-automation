@@ -89,7 +89,8 @@ function checkCase(c, seen) {
       }
       const r = mock.call(e.tool, e.args);
       if (!r.ok) at(`${tn}: mock rejected ${e.tool}: ${r.error}`);
-      else if (r.result.status === 'rejected') at(`${tn}: mock rejected ${e.tool}: ${r.result.error}`);
+      else if (r.result.status === 'rejected' && !e.expect_rejected) at(`${tn}: mock rejected ${e.tool}: ${r.result.error}`);
+      else if (r.result.status !== 'rejected' && e.expect_rejected) at(`${tn}: ${e.tool} has expect_rejected but the mock accepted it`);
     }
   });
 

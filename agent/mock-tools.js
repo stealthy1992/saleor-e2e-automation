@@ -96,9 +96,11 @@ function createMockTools() {
       if (!confirm) {
         const action_id = `act-${++seq}`;
         pending.set(key, { action_id, reason });
+        const o = findOrder(order_number, email);
         return {
           status: 'pending_confirmation',
           action_id,
+          order_summary: { number: o.number, status: o.status, total: o.total, lines: o.lines },
           message: 'Nothing has been requested yet. Ask the customer to confirm.',
         };
       }

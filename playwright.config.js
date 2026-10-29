@@ -50,5 +50,12 @@ module.exports = defineConfig({
         trace: 'retain-on-failure',
       },
     },
+    {
+      name: 'agent',
+      testDir: './tests/agent',
+      use: {
+        baseURL: process.env.AGENT_URL || 'http://localhost:3200',
+      },
+    },
   ],
-});
+});
