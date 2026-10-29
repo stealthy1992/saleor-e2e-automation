@@ -380,6 +380,69 @@ pipeline {
             }
         }
 
+        stage('Start agent (stub provider, mock backend)') {
+            // The k6 agent-flow scenario (and the Playwright agent project) need the agent on :3200.
+            // Stub provider + mock backend: deterministic, no Gemini quota, no Saleor data touched.
+            // Same start pattern as the assistant stage: cmd does the redirection (no -RedirectStandard*),
+            // the pid is cmd's, and the post block stops the whole tree with taskkill /T.
+            steps {
+                powershell '''
+                    $env:AGENT_PORT = "3200"
+                    $env:AGENT_PROVIDER = "stub"
+                    $env:AGENT_BACKEND = "mock"
+
+                    $p = Start-Process -FilePath "cmd.exe" `
+                        -ArgumentList '/c node agent/server.js > agent.out.log 2> agent.err.log' `
+                        -PassThru -WindowStyle Hidden
+                    Set-Content -Path "agent.pid" -Value $p.Id
+                    Write-Host "agent started, pid $($p.Id)"
+
+                    $ready = $false
+                    for ($i = 1; $i -le 30; $i++) {
+                        try {
+                            $h = Invoke-RestMethod -Uri "http://localhost:3200/health" -TimeoutSec 3
+                            if ($h.provider -eq "stub" -and $h.backend -eq "mock") {
+                                Write-Host "Agent is up (stub/mock)"
+                                $ready = $true
+                            } else {
+                                Write-Host "Agent reports provider $($h.provider) backend $($h.backend), expected stub/mock"
+                            }
+                            break
+                        } catch {
+                            Write-Host "Waiting for agent... ($i/30)"
+                            Start-Sleep -Seconds 2
+                        }
+                    }
+                    if (-not $ready) {
+                        Get-Content agent.err.log -ErrorAction SilentlyContinue
+                        exit 1
+                    }
+                '''
+            }
+        }
+
+        stage('Run k6 agent-flow (agent, stub)') {
+            // Needs the agent server running on port 3200 with its defaults (stub provider, mock backend).
+            // The scenario's setup() refuses to run unless /health reports stub/mock,
+            // so this can never spend Gemini quota or touch Saleor data.
+            steps {
+                script {
+                    def agentFlowExit = powershell(
+                        script: '''
+                            k6 run tests/k6/scenarios/agent-flow.js `
+                                --out influxdb=$env:INFLUXDB_URL `
+                                -e AGENT_URL=http://localhost:3200
+                        ''',
+                        returnStatus: true
+                    )
+                    if (agentFlowExit != 0) {
+                        unstable('k6 agent-flow thresholds breached or the run failed — build marked unstable')
+                    }
+                    echo "View results: ${env.GRAFANA_URL}"
+                }
+            }
+        }
+
         stage('Eval gate (real model: 58 cases, off-topic, injection)') {
             // Optional, default off. Second assistant on :3101 with the real provider; the stub on :3100 is untouched.
             // Unstable if: the 58-case eval is below 41/58 or has an OFF_TOPIC or no_label flag; the off-topic set is below 11/12
@@ -582,6 +645,14 @@ pipeline {
                 if (Test-Path assistant.eval.pid) {
                     taskkill /PID ([int](Get-Content assistant.eval.pid)) /T /F | Out-Null
                     Remove-Item assistant.eval.pid -ErrorAction SilentlyContinue
+                }
+                exit 0
+            '''
+
+            powershell '''
+                if (Test-Path agent.pid) {
+                    taskkill /PID ([int](Get-Content agent.pid)) /T /F | Out-Null
+                    Remove-Item agent.pid -ErrorAction SilentlyContinue
                 }
                 exit 0
             '''
