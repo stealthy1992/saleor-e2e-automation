@@ -5,7 +5,12 @@ const { validateAgent } = require('../../schemas/agent');
 test.describe('Agent HTTP API (stub provider, mock backend)', () => {
 
     test.beforeEach(async ({ request }) => {
-        const health = await (await request.get('/health')).json();
+        let health = { provider: 'unreachable', backend: 'unreachable' };
+        try {
+            health = await (await request.get('/health')).json();
+        } catch (err) {
+            // agent not listening: fall through and skip with the message below
+        }
         test.skip(health.provider !== 'stub' || health.backend !== 'mock',
             `needs AGENT_PROVIDER=stub and AGENT_BACKEND=mock, server runs "${health.provider}/${health.backend}"`);
     });
