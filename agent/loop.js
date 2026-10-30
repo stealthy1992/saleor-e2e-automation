@@ -4,7 +4,8 @@ const { TOOLS, TOOL_BY_NAME, validateArgs } = require('./tools');
 const MAX_STEPS = Number(process.env.AGENT_MAX_STEPS || 6);
 const FALLBACK_REPLY = "Sorry, I couldn't complete that. Please try again or contact support.";
 
-// One session = one customer conversation. `backend` is anything with call(name, args) and state().
+// One session = one customer conversation. `backend` is anything with call(name, args) and state();
+// both may return a Promise (the Saleor backend does, the mock does not).
 function createSession(backend) {
   return { messages: [], turn: 0, pending: new Map(), backend };
 }
@@ -12,7 +13,7 @@ function createSession(backend) {
 const pendingKey = (args) => `${args.order_number}|${args.email.trim().toLowerCase()}`;
 
 // Runs one tool call the model asked for. status: ok | invalid | blocked.
-function execute(session, name, args) {
+async function execute(session, name, args) {
   if (!TOOL_BY_NAME[name]) return { status: 'invalid', result: { error: 'unknown_tool' } };
   const check = validateArgs(name, args);
   if (!check.valid) return { status: 'invalid', result: { error: 'invalid_arguments', details: check.errors } };
@@ -29,7 +30,7 @@ function execute(session, name, args) {
     }
   }
 
-  const r = session.backend.call(name, args);
+  const r = await session.backend.call(name, args);
   if (!r.ok) return { status: 'invalid', result: { error: r.error, details: r.details } };
 
   if (isRefund && args.confirm === false && r.result.status === 'pending_confirmation') {
@@ -56,7 +57,7 @@ async function runTurn(session, provider, text) {
     }
     if (out.type !== 'tool_call') throw new Error('provider returned an unknown step type');
     session.messages.push({ role: 'assistant', tool_call: { name: out.name, args: out.args } });
-    const done = execute(session, out.name, out.args);
+    const done = await execute(session, out.name, out.args);
     trace.push({ step, tool: out.name, args: out.args, status: done.status, result: done.result });
     session.messages.push({ role: 'tool', name: out.name, content: JSON.stringify(done.result) });
   }

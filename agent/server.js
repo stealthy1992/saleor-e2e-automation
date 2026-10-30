@@ -14,17 +14,31 @@ const MAX_MESSAGE = 1000;
 const MAX_SESSIONS = 200;
 const SESSION_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
-// P1 supports only the stub provider and the mock backend (real Gemini and Saleor come in P2).
-if (PROVIDER !== 'stub') throw new Error(`AGENT_PROVIDER "${PROVIDER}" is not available yet (P1: stub only)`);
-if (BACKEND !== 'mock') throw new Error(`AGENT_BACKEND "${BACKEND}" is not available yet (P1: mock only)`);
+// Providers: only the stub exists so far (Ollama and Gemini come in P2b).
+// Backends: mock (default, in-memory fixtures) or saleor (reads Saleor, records refunds in Postgres).
+if (PROVIDER !== 'stub') throw new Error(`AGENT_PROVIDER "${PROVIDER}" is not available yet (stub only)`);
+if (BACKEND !== 'mock' && BACKEND !== 'saleor') throw new Error(`AGENT_BACKEND "${BACKEND}" is not available (mock or saleor)`);
 
 const provider = createStub();
 const sessions = new Map();
 
+// The saleor backend is loaded only when asked for, so the default mock run needs no .env, no Saleor, no Postgres.
+// assistant/saleor.js must be required BEFORE utils/db-client.js: it loads .env, and db-client reads DATABASE_URL on require.
+let db = null;
+let makeBackend = () => createMockTools();
+let initBackend = async () => {};
+if (BACKEND === 'saleor') {
+  const saleor = require('../assistant/saleor');
+  db = require('../utils/db-client');
+  const { createSaleorTools, initSaleorBackend } = require('./saleor-tools');
+  makeBackend = (sessionId) => createSaleorTools({ sessionId, saleor, db });
+  initBackend = () => initSaleorBackend(db);
+}
+
 function getSession(id) {
   if (!sessions.has(id)) {
     if (sessions.size >= MAX_SESSIONS) sessions.delete(sessions.keys().next().value);
-    sessions.set(id, createSession(createMockTools()));
+    sessions.set(id, createSession(makeBackend(id)));
   }
   return sessions.get(id);
 }
@@ -87,12 +101,12 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/health') {
       return send(res, 200, { status: 'ok', provider: provider.name, backend: BACKEND });
     }
-    // Test hook: final state of a mock session (recorded refund actions, pending count, turns).
+    // Test hook: final state of a session (recorded refund actions, pending count, turns).
     if (req.method === 'GET' && url.pathname === '/api/agent/state') {
       const id = url.searchParams.get('session_id') || '';
       if (!sessions.has(id)) return send(res, 404, { error: 'unknown session' });
       const s = sessions.get(id);
-      return send(res, 200, { turns: s.turn, ...s.backend.state() });
+      return send(res, 200, { turns: s.turn, ...(await s.backend.state()) });
     }
     if (url.pathname === '/api/agent') {
       if (req.method !== 'POST') return send(res, 405, { error: 'method not allowed' });
@@ -105,6 +119,20 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`agent listening on http://localhost:${PORT} (provider=${provider.name} backend=${BACKEND})`);
-});
+initBackend()
+  .then(() => {
+    server.listen(PORT, () => {
+      console.log(`agent listening on http://localhost:${PORT} (provider=${provider.name} backend=${BACKEND})`);
+    });
+  })
+  .catch((e) => {
+    console.error(`agent backend "${BACKEND}" failed to start:`, e.message);
+    process.exit(1);
+  });
+
+for (const sig of ['SIGINT', 'SIGTERM']) {
+  process.on(sig, async () => {
+    if (db) await db.closePool().catch(() => {});
+    process.exit(0);
+  });
+}
