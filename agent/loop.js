@@ -40,23 +40,26 @@ async function execute(session, name, args) {
   return { status: 'ok', result: r.result };
 }
 
-// provider.next({ messages, tools }) -> { type: 'text', text } | { type: 'tool_call', name, args }
+// provider.next({ messages, tools, system? }) -> { type: 'text', text } | { type: 'tool_call', name, args, meta? }
+// `system` (the system prompt) is passed only when given; the stub ignores it. `meta` is opaque provider data
+// (Gemini's thoughtSignature): it is stored on the assistant tool_call message so the adapter can send it back,
+// and it never goes into the trace.
 // Every provider.next call is one model request, so modelCalls is the request count for the turn.
-async function runTurn(session, provider, text) {
+async function runTurn(session, provider, text, { system } = {}) {
   session.turn += 1;
   session.messages.push({ role: 'user', content: text });
   const trace = [];
   let modelCalls = 0;
 
   for (let step = 1; step <= MAX_STEPS; step += 1) {
-    const out = await provider.next({ messages: session.messages, tools: TOOLS });
+    const out = await provider.next({ messages: session.messages, tools: TOOLS, ...(system ? { system } : {}) });
     modelCalls += 1;
     if (out.type === 'text') {
       session.messages.push({ role: 'assistant', content: out.text });
       return { reply: out.text, trace, modelCalls, truncated: false };
     }
     if (out.type !== 'tool_call') throw new Error('provider returned an unknown step type');
-    session.messages.push({ role: 'assistant', tool_call: { name: out.name, args: out.args } });
+    session.messages.push({ role: 'assistant', tool_call: { name: out.name, args: out.args, ...(out.meta ? { meta: out.meta } : {}) } });
     const done = await execute(session, out.name, out.args);
     trace.push({ step, tool: out.name, args: out.args, status: done.status, result: done.result });
     session.messages.push({ role: 'tool', name: out.name, content: JSON.stringify(done.result) });

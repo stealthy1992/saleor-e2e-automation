@@ -1,9 +1,11 @@
 'use strict';
 const http = require('http');
+const path = require('path');
 const crypto = require('crypto');
 const { createSession, runTurn } = require('./loop');
 const { createMockTools } = require('./mock-tools');
-const { createStub } = require('./providers/stub');
+const { buildClauseIndex, mockClauseIndex } = require('./clause-index');
+const { buildSystemPrompt, PROMPT_VERSION } = require('./prompt');
 
 const PORT = Number(process.env.AGENT_PORT || 3200);
 const PROVIDER = (process.env.AGENT_PROVIDER || 'stub').toLowerCase();
@@ -14,12 +16,26 @@ const MAX_MESSAGE = 1000;
 const MAX_SESSIONS = 200;
 const SESSION_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
-// Providers: only the stub exists so far (Ollama and Gemini come in P2b).
+// Providers: stub (default, no model), ollama (local dev), gemini (gates only, costs requests).
 // Backends: mock (default, in-memory fixtures) or saleor (reads Saleor, records refunds in Postgres).
-if (PROVIDER !== 'stub') throw new Error(`AGENT_PROVIDER "${PROVIDER}" is not available yet (stub only)`);
-if (BACKEND !== 'mock' && BACKEND !== 'saleor') throw new Error(`AGENT_BACKEND "${BACKEND}" is not available (mock or saleor)`);
+const DEFAULT_MODELS = { ollama: 'llama3.1:8b', gemini: 'gemini-3.5-flash-lite' };
+const fail = (msg) => { console.error(`agent cannot start: ${msg}`); process.exit(1); };
+if (!['stub', 'ollama', 'gemini'].includes(PROVIDER)) fail(`AGENT_PROVIDER "${PROVIDER}" is not available (stub, ollama or gemini)`);
+if (BACKEND !== 'mock' && BACKEND !== 'saleor') fail(`AGENT_BACKEND "${BACKEND}" is not available (mock or saleor)`);
 
-const provider = createStub();
+// The stub run needs no .env; the real providers read GEMINI_API_KEY / OLLAMA_URL from it (never overrides the shell).
+if (PROVIDER !== 'stub') require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+const MODEL = process.env.AGENT_MODEL || DEFAULT_MODELS[PROVIDER];
+
+let provider;
+try {
+  if (PROVIDER === 'stub') provider = require('./providers/stub').createStub(); // loaded only for the stub (it needs assistant/router.js)
+  else if (PROVIDER === 'ollama') provider = require('./providers/ollama').createOllama({ model: MODEL });
+  else provider = require('./providers/gemini').createGemini({ model: MODEL });
+} catch (e) {
+  fail(e.message);
+}
+let systemPrompt; // built at start for the real providers; the stub ignores it
 const sessions = new Map();
 
 // The saleor backend is loaded only when asked for, so the default mock run needs no .env, no Saleor, no Postgres.
@@ -84,8 +100,10 @@ async function handleAgent(req, res) {
 
   const started = Date.now();
   try {
-    const r = await runTurn(getSession(sessionId), provider, message);
-    console.log(`agent ok: provider=${provider.name} calls=${r.trace.length} model_calls=${r.modelCalls} ${Date.now() - started}ms`);
+    const before = provider.stats ? provider.stats.requests : 0;
+    const r = await runTurn(getSession(sessionId), provider, message, { system: systemPrompt });
+    const http_requests = provider.stats ? ` http_requests=${provider.stats.requests - before}` : '';
+    console.log(`agent ok: provider=${provider.name} calls=${r.trace.length} model_calls=${r.modelCalls}${http_requests} ${Date.now() - started}ms`);
     const body = { session_id: sessionId, reply: r.reply, model_calls: r.modelCalls, truncated: r.truncated };
     if (EXPOSE_TRACE) body.trace = r.trace;
     return send(res, 200, body);
@@ -99,7 +117,9 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
     if (req.method === 'GET' && url.pathname === '/health') {
-      return send(res, 200, { status: 'ok', provider: provider.name, backend: BACKEND });
+      // The stub body stays exactly { status, provider, backend } (the specs compare it); real providers add model and request count.
+      const extra = provider.stats ? { model: provider.model, model_requests: provider.stats.requests, ...(provider.stats.coercions !== undefined ? { coercions: provider.stats.coercions } : {}) } : {};
+      return send(res, 200, { status: 'ok', provider: provider.name, backend: BACKEND, ...extra });
     }
     // Test hook: final state of a session (recorded refund actions, pending count, turns).
     if (req.method === 'GET' && url.pathname === '/api/agent/state') {
@@ -119,14 +139,33 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-initBackend()
+// Real providers only: clause index from the live policy page (saleor) or the two mock clauses, then the system prompt.
+async function buildPrompt() {
+  const { index, count } = BACKEND === 'saleor'
+    ? buildClauseIndex(await require('../assistant/saleor').getPolicyText())
+    : mockClauseIndex();
+  if (!count) throw new Error('the policy page has no clause lines like "3.1 text": clause index is empty');
+  systemPrompt = buildSystemPrompt(index);
+  console.log(`agent prompt: ${PROMPT_VERSION}, clause index ${count} clauses, system prompt ${systemPrompt.length} chars`);
+  if (process.env.AGENT_PRINT_PROMPT === '1') console.log(`----- system prompt -----\n${systemPrompt}\n-------------------------`);
+}
+
+async function start() {
+  await initBackend();
+  if (PROVIDER !== 'stub') {
+    await buildPrompt();
+    if (provider.check) await provider.check();
+  }
+}
+
+start()
   .then(() => {
     server.listen(PORT, () => {
-      console.log(`agent listening on http://localhost:${PORT} (provider=${provider.name} backend=${BACKEND})`);
+      console.log(`agent listening on http://localhost:${PORT} (provider=${provider.name} model=${provider.model || 'none'} backend=${BACKEND})`);
     });
   })
   .catch((e) => {
-    console.error(`agent backend "${BACKEND}" failed to start:`, e.message);
+    console.error(`agent (provider=${PROVIDER} backend=${BACKEND}) failed to start:`, e.message);
     process.exit(1);
   });
 

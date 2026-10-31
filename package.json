@@ -13,7 +13,9 @@
     "assistant:check": "node assistant/check-saleor.js",
     "assistant": "node assistant/server.js",
     "agent": "node agent/server.js",
-    "agent:check": "node agent/check-cases.js && node agent/check-loop.js"
+    "agent:check": "node agent/check-cases.js && node agent/check-loop.js",
+    "agent:check-providers": "node agent/check-providers.js",
+    "agent:smoke": "node agent/smoke.js"
   },
   "dependencies": {
     "@playwright/test": "^1.48.0",
