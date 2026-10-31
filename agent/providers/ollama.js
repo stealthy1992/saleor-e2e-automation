@@ -4,25 +4,9 @@
 // Provider object: { name, model, stats, next, check }. Every next() call is ONE HTTP request to Ollama.
 // Written from the Ollama API as documented; the first live smoke verifies it against the real server.
 
-const { TOOL_BY_NAME } = require('../tools');
-
-// Decision 2026-10-31: llama3.1:8b sent confirm:"false" (a string). The intent was right, only the data type was wrong,
-// so the adapter converts the exact strings "true"/"false" to booleans for fields the tool schema declares boolean.
-// Nothing else is changed (other types, other strings, unknown tools stay as the model sent them and Ajv judges them).
-function coerceBooleans(toolName, args) {
-  const tool = TOOL_BY_NAME[toolName];
-  if (!tool) return { args, count: 0 };
-  const props = tool.parameters.properties || {};
-  const out = { ...args };
-  let count = 0;
-  for (const [k, v] of Object.entries(out)) {
-    if (props[k] && props[k].type === 'boolean' && typeof v === 'string') {
-      const t = v.trim().toLowerCase();
-      if (t === 'true' || t === 'false') { out[k] = t === 'true'; count += 1; }
-    }
-  }
-  return { args: out, count };
-}
+// Decision 2026-10-31 (final): NO conversion of any argument. A string where the schema needs a boolean
+// (llama3.1:8b sends confirm:"false") goes to validation as is, fails as `invalid`, and counts as a model weakness.
+// Same for a tool call written as text instead of a real tool call: it is a text reply, not a call.
 
 const toOllamaTools = (tools) =>
   tools.map((t) => ({
@@ -54,7 +38,7 @@ function createOllama(opts = {}) {
   const model = opts.model || 'llama3.1:8b';
   const temperature = opts.temperature ?? Number(process.env.LLM_TEMPERATURE || 0);
   const timeoutMs = opts.timeoutMs ?? Number(process.env.LLM_TIMEOUT_MS || 90000);
-  const stats = { requests: 0, ignoredToolCalls: 0, coercions: 0 }; // coercions = string booleans converted
+  const stats = { requests: 0, ignoredToolCalls: 0 };
 
   // Fail fast at server start: Ollama reachable and the model pulled (GET /api/tags, no model run).
   async function check() {
@@ -98,12 +82,7 @@ function createOllama(opts = {}) {
         try { args = JSON.parse(args); } catch { throw new Error('ollama returned tool arguments that are not valid JSON'); }
       }
       if (!fn.name || !args || typeof args !== 'object' || Array.isArray(args)) throw new Error('ollama returned a malformed tool call');
-      const fixed = coerceBooleans(fn.name, args);
-      if (fixed.count) {
-        stats.coercions += fixed.count;
-        console.log(`agent llm: ollama sent a string for a boolean in ${fn.name}; converted (${fixed.count})`);
-      }
-      return { type: 'tool_call', name: fn.name, args: fixed.args };
+      return { type: 'tool_call', name: fn.name, args };
     }
     if (typeof msg.content === 'string' && msg.content.trim()) return { type: 'text', text: msg.content.trim() };
     throw new Error('ollama returned neither text nor a tool call');
@@ -112,4 +91,4 @@ function createOllama(opts = {}) {
   return { name: 'ollama', model, stats, next, check };
 }
 
-module.exports = { createOllama, toOllamaMessages, toOllamaTools, coerceBooleans };
+module.exports = { createOllama, toOllamaMessages, toOllamaTools };

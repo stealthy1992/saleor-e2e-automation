@@ -100,7 +100,6 @@ const calls = (body, tool) => (body.trace || []).filter((t) => t.tool === tool);
 
   const healthAfter = (await http('GET', '/health')).json;
   const after = healthAfter.model_requests;
-  if (typeof healthAfter.coercions === 'number') console.log(`string booleans converted by the adapter (since server start): ${healthAfter.coercions}`);
   console.log('\n--- summary ---');
   console.log(`model requests (loop count): ${modelCalls}, ideal ${IDEAL_REQUESTS}`);
   if (typeof after === 'number' && typeof requestsBefore === 'number') {

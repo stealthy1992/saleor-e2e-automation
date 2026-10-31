@@ -118,7 +118,7 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     if (req.method === 'GET' && url.pathname === '/health') {
       // The stub body stays exactly { status, provider, backend } (the specs compare it); real providers add model and request count.
-      const extra = provider.stats ? { model: provider.model, model_requests: provider.stats.requests, ...(provider.stats.coercions !== undefined ? { coercions: provider.stats.coercions } : {}) } : {};
+      const extra = provider.stats ? { model: provider.model, model_requests: provider.stats.requests } : {};
       return send(res, 200, { status: 'ok', provider: provider.name, backend: BACKEND, ...extra });
     }
     // Test hook: final state of a session (recorded refund actions, pending count, turns).

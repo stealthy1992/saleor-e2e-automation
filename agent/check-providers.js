@@ -4,11 +4,11 @@
 //   node agent/check-providers.js     (or: npm run agent:check-providers)
 const http = require('http');
 const assert = require('assert');
-const { createOllama, toOllamaMessages, toOllamaTools, coerceBooleans } = require('./providers/ollama');
+const { createOllama, toOllamaMessages, toOllamaTools } = require('./providers/ollama');
 const { createGemini, toGeminiSchema, toGeminiContents, toResponseObject } = require('./providers/gemini');
 const { buildClauseIndex, mockClauseIndex } = require('./clause-index');
 const { buildSystemPrompt } = require('./prompt');
-const { TOOLS } = require('./tools');
+const { TOOLS, validateArgs } = require('./tools');
 const { createSession, runTurn } = require('./loop');
 const { createMockTools } = require('./mock-tools');
 
@@ -138,19 +138,15 @@ const SYNTH_POLICY = [
     assert.strictEqual(fake.seen[0].url, '/api/chat');
     await fake.close();
   });
-  await check('ollama: string "true"/"false" for a boolean field is converted (and counted); other values are left alone', async () => {
+  await check('ollama: a string for a boolean field is passed through UNCHANGED and fails validation (no conversion)', async () => {
     const a = { order_number: '1001', email: 'a@b.co', reason: 'does not fit' };
-    assert.deepStrictEqual(coerceBooleans('request_refund', { ...a, confirm: 'false' }), { args: { ...a, confirm: false }, count: 1 });
-    assert.strictEqual(coerceBooleans('request_refund', { ...a, confirm: ' True ' }).args.confirm, true);
-    assert.strictEqual(coerceBooleans('request_refund', { ...a, confirm: 'yes' }).args.confirm, 'yes');   // not a boolean word: Ajv rejects it
-    assert.strictEqual(coerceBooleans('request_refund', { ...a, confirm: 1 }).args.confirm, 1);
-    assert.strictEqual(coerceBooleans('get_order', { order_number: 'true', email: 'a@b.co' }).args.order_number, 'true'); // string field untouched
-    assert.strictEqual(coerceBooleans('nope', { confirm: 'true' }).args.confirm, 'true');
-    const fake = await startFake(() => ollamaCall('request_refund', { ...a, confirm: 'true' }));
+    const fake = await startFake(() => ollamaCall('request_refund', { ...a, confirm: 'false' }));
     const p = createOllama({ baseUrl: fake.url });
     const out = await p.next({ messages: [{ role: 'user', content: 'x' }], tools: TOOLS });
-    assert.strictEqual(out.args.confirm, true);
-    assert.strictEqual(p.stats.coercions, 1);
+    assert.strictEqual(out.args.confirm, 'false');
+    assert.strictEqual(validateArgs('request_refund', out.args).valid, false);
+    assert.strictEqual(validateArgs('request_refund', { ...out.args, confirm: false }).valid, true);
+    assert.ok(!('coercions' in p.stats));
     await fake.close();
   });
   await check('ollama: check() passes with the model installed, explains when it is missing or Ollama is down', async () => {
