@@ -9,7 +9,7 @@ const { test, expect } = require('@playwright/test');
 test.describe('Agent HTTP API (stub provider, saleor backend)', () => {
     let query = null;
     let loaded = false;
-    let order = null;       // { number, user_email, status, charge_status }; number >= 100 because the tool schema only accepts 3 to 10 digits
+    let order = null;       // { number, user_email, status, charge_status }; number >= 100 because the tool schema only accepts 3 to 10 digits; never a fully refunded order (P3a rejects those)
     let productName = null; // a single-word "Tulip & Teak X" product, because the stub reads one word
 
     test.beforeEach(async ({ request }) => {
@@ -25,8 +25,10 @@ test.describe('Agent HTTP API (stub provider, saleor backend)', () => {
         if (!loaded) {
             ({ query } = require('../../utils/db-client'));
             const o = await query(
-                `SELECT number, user_email, status, charge_status FROM order_order
-                  WHERE user_email <> '' AND status = 'unfulfilled' AND number >= 100 ORDER BY number ASC LIMIT 1`);
+                `SELECT number, user_email, status, charge_status FROM order_order o
+                  WHERE user_email <> '' AND status = 'unfulfilled' AND number >= 100
+                    AND NOT EXISTS (SELECT 1 FROM payment_payment p WHERE p.order_id = o.id AND p.charge_status = 'fully-refunded')
+                  ORDER BY number ASC LIMIT 1`);
             const p = await query(
                 `SELECT name FROM product_product WHERE name ~ '^Tulip & Teak [A-Z][a-z]+$' ORDER BY name LIMIT 1`);
             order = o[0] || null;
@@ -180,5 +182,31 @@ test.describe('Agent HTTP API (stub provider, saleor backend)', () => {
         expect(body.trace).toHaveLength(1);
         expect(body.trace[0].result).toEqual({ status: 'rejected', error: 'order_not_found' });
         expect(await dbActions(sid)).toEqual([]);
+    });
+
+    test('AGENT-SALEOR-008: refund for an order whose payment is already fully refunded is rejected', async ({ request }) => {
+        // Discovery uses Saleor's payment table (charge_status 'fully-refunded'). If the query itself fails,
+        // the test fails loudly instead of skipping, so a wrong column name cannot hide the check.
+        let rows;
+        try {
+            rows = await query(
+                `SELECT o.number, o.user_email FROM order_order o
+                   JOIN payment_payment p ON p.order_id = o.id
+                  WHERE p.charge_status = 'fully-refunded' AND o.user_email <> '' AND o.number >= 100
+                  ORDER BY o.number ASC LIMIT 1`);
+        } catch (err) {
+            throw new Error(`discovery query failed (check payment_payment and order_order column names): ${err.message}`);
+        }
+        test.skip(!rows.length, 'no order with a fully-refunded payment found in payment_payment');
+        const refunded = rows[0];
+
+        const sid = newSession();
+        const body = await say(request, sid,
+            `I want a refund for order ${refunded.number}, email ${refunded.user_email}. The item arrived damaged.`);
+        expect(body.trace).toHaveLength(1);
+        expect(body.trace[0]).toMatchObject({ tool: 'request_refund', args: { confirm: false }, status: 'ok' });
+        expect(body.trace[0].result).toEqual({ status: 'rejected', error: 'already_refunded' });
+        expect(await dbActions(sid)).toEqual([]);
+        expect(await state(request, sid)).toMatchObject({ actions: [], pending: 0 });
     });
 });

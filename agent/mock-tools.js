@@ -1,5 +1,5 @@
 'use strict';
-const { TOOL_BY_NAME, validateArgs } = require('./tools');
+const { TOOL_BY_NAME, validateArgs, refundBlockedReason } = require('./tools');
 
 // Deterministic fixtures. MOCK ONLY: not real store data and not real policy text.
 const ORDERS = {
@@ -61,22 +61,24 @@ const CLAUSES = {
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 
-function findOrder(number, email) {
-  const order = ORDERS[String(number)];
+function findOrder(number, email, orders = ORDERS) {
+  const order = orders[String(number)];
   // Same result for "no such order" and "wrong email", as in assistant/saleor.js getOrder.
   if (!order || order.email !== String(email).trim().toLowerCase()) return null;
   return order.facts;
 }
 
 // One instance per case, so state never leaks between cases.
-function createMockTools() {
+// options.orders replaces the fixtures (offline checks only; the server never passes it).
+function createMockTools(options = {}) {
+  const orders = options.orders || ORDERS;
   const pending = new Map(); // "number|email" -> { action_id, reason }
   const actions = []; // stands in for the future Postgres agent_actions table
   let seq = 0;
 
   const handlers = {
     get_order({ order_number, email }) {
-      const facts = findOrder(order_number, email);
+      const facts = findOrder(order_number, email, orders);
       return facts ? { found: true, order: clone(facts) } : { found: false };
     },
 
@@ -91,12 +93,14 @@ function createMockTools() {
     },
 
     request_refund({ order_number, email, reason, confirm }) {
-      if (!findOrder(order_number, email)) return { status: 'rejected', error: 'order_not_found' };
+      const o = findOrder(order_number, email, orders);
+      if (!o) return { status: 'rejected', error: 'order_not_found' };
+      const blocked = refundBlockedReason(o);
+      if (blocked) return { status: 'rejected', error: blocked };
       const key = `${order_number}|${email.trim().toLowerCase()}`;
       if (!confirm) {
         const action_id = `act-${++seq}`;
         pending.set(key, { action_id, reason });
-        const o = findOrder(order_number, email);
         return {
           status: 'pending_confirmation',
           action_id,

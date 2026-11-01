@@ -83,4 +83,11 @@ function validateArgs(name, args) {
   };
 }
 
-module.exports = { TOOLS, TOOL_BY_NAME, validateArgs };
+// Deterministic refund eligibility (P3a). Returns an error code when a refund must not be requested, else null.
+// Only FULLY_REFUNDED is decided here: other payment states depend on the private policy and are not guessed.
+function refundBlockedReason(facts) {
+  if (facts && facts.paymentStatus === 'FULLY_REFUNDED') return 'already_refunded';
+  return null;
+}
+
+module.exports = { TOOLS, TOOL_BY_NAME, validateArgs, refundBlockedReason };

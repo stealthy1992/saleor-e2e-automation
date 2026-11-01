@@ -1,6 +1,6 @@
 'use strict';
 const crypto = require('crypto');
-const { TOOL_BY_NAME, validateArgs } = require('./tools');
+const { TOOL_BY_NAME, validateArgs, refundBlockedReason } = require('./tools');
 
 // Real backend (AGENT_BACKEND=saleor). Same interface as mock-tools.js: call(name, args) and state(),
 // but both return Promises. Reads come from Saleor (assistant/saleor.js). The only thing it ever
@@ -88,6 +88,8 @@ function createSaleorTools({ sessionId, saleor, db }) {
       const node = await saleor.getOrder(order_number, email);
       if (!node) return { status: 'rejected', error: 'order_not_found' };
       const facts = toOrderFacts(node);
+      const blocked = refundBlockedReason(facts);
+      if (blocked) return { status: 'rejected', error: blocked };
       const key = `${order_number}|${email.trim().toLowerCase()}`;
 
       if (!confirm) {
