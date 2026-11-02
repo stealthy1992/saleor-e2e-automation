@@ -73,8 +73,11 @@ for (const tool of TOOLS) {
   compiled[tool.name] = ajv.compile(tool.parameters);
 }
 
+// H1: own-property lookup only. A plain object also "has" constructor, toString and __proto__.
+const isKnownTool = (name) => typeof name === 'string' && Object.prototype.hasOwnProperty.call(TOOL_BY_NAME, name);
+
 function validateArgs(name, args) {
-  const fn = compiled[name];
+  const fn = isKnownTool(name) ? compiled[name] : undefined;
   if (!fn) throw new Error(`Unknown tool "${name}". Known: ${Object.keys(compiled).join(', ')}`);
   const valid = fn(args);
   return {
@@ -90,4 +93,4 @@ function refundBlockedReason(facts) {
   return null;
 }
 
-module.exports = { TOOLS, TOOL_BY_NAME, validateArgs, refundBlockedReason };
+module.exports = { TOOLS, TOOL_BY_NAME, isKnownTool, validateArgs, refundBlockedReason };

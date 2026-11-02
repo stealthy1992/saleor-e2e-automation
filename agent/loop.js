@@ -1,5 +1,5 @@
 'use strict';
-const { TOOLS, TOOL_BY_NAME, validateArgs } = require('./tools');
+const { TOOLS, TOOL_BY_NAME, isKnownTool, validateArgs } = require('./tools');
 
 const MAX_STEPS = Number(process.env.AGENT_MAX_STEPS || 6);
 const FALLBACK_REPLY = "Sorry, I couldn't complete that. Please try again or contact support.";
@@ -54,7 +54,7 @@ function looksLikeToolCallText(text) {
   return jsonObjectsIn(String(text || '')).some(
     (o) =>
       o && typeof o === 'object' && !Array.isArray(o) &&
-      typeof o.name === 'string' && Object.prototype.hasOwnProperty.call(TOOL_BY_NAME, o.name) &&
+      typeof o.name === 'string' && isKnownTool(o.name) &&
       (o.parameters !== undefined || o.arguments !== undefined),
   );
 }
@@ -69,7 +69,7 @@ const pendingKey = (args) => `${args.order_number}|${args.email.trim().toLowerCa
 
 // Runs one tool call the model asked for. status: ok | invalid | blocked.
 async function execute(session, name, args) {
-  if (!TOOL_BY_NAME[name]) return { status: 'invalid', result: { error: 'unknown_tool' } };
+  if (!isKnownTool(name)) return { status: 'invalid', result: { error: 'unknown_tool' } };
   const check = validateArgs(name, args);
   if (!check.valid) return { status: 'invalid', result: { error: 'invalid_arguments', details: check.errors } };
 
@@ -113,6 +113,12 @@ async function runTurn(session, provider, text, { system } = {}) {
     const out = await provider.next({ messages: session.messages, tools: TOOLS, ...(system ? { system } : {}) });
     modelCalls += 1;
     if (out.type === 'text') {
+      // H2: an empty, whitespace-only or non-string reply is never shown to the customer.
+      if (typeof out.text !== 'string' || !out.text.trim()) {
+        session.messages.push({ role: 'assistant', content: FALLBACK_REPLY });
+        const original = typeof out.text === 'string' ? out.text : (JSON.stringify(out.text) ?? '');
+        return { reply: FALLBACK_REPLY, trace, modelCalls, truncated: false, replaced: true, replacedReason: 'empty_reply', originalReply: original };
+      }
       // P3c first: a tool call written as text is never shown to the customer.
       if (looksLikeToolCallText(out.text)) {
         session.messages.push({ role: 'assistant', content: FALLBACK_REPLY });
