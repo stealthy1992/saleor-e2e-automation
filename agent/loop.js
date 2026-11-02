@@ -3,11 +3,24 @@ const { TOOLS, TOOL_BY_NAME, validateArgs } = require('./tools');
 
 const MAX_STEPS = Number(process.env.AGENT_MAX_STEPS || 6);
 const FALLBACK_REPLY = "Sorry, I couldn't complete that. Please try again or contact support.";
+// P3b: sent instead of a reply that claims a refund is recorded when nothing was recorded.
+// It must NOT contain the word "recorded" (the scorer flag is a substring test).
+const CLAIM_REPLACEMENT = "I couldn't record that request. Please try again or contact support.";
+
+// A claim = a sentence with the word "recorded" and no negation in the same sentence.
+// Option D (decided 2026-11-02). Known limits: only the word "recorded" is looked for;
+// a negation elsewhere in the sentence ("Not to worry, it is recorded") hides a real claim.
+const NEGATION = /\b(not|never|no|yet|unable|cannot)\b|n't\b/i;
+function hasRecordedClaim(text) {
+  return String(text || '')
+    .split(/(?<=[.!?])\s+|\n+/)
+    .some((sentence) => /\brecorded\b/i.test(sentence) && !NEGATION.test(sentence));
+}
 
 // One session = one customer conversation. `backend` is anything with call(name, args) and state();
 // both may return a Promise (the Saleor backend does, the mock does not).
 function createSession(backend) {
-  return { messages: [], turn: 0, pending: new Map(), backend };
+  return { messages: [], turn: 0, pending: new Map(), recorded: 0, backend };
 }
 
 const pendingKey = (args) => `${args.order_number}|${args.email.trim().toLowerCase()}`;
@@ -36,7 +49,10 @@ async function execute(session, name, args) {
   if (isRefund && args.confirm === false && r.result.status === 'pending_confirmation') {
     session.pending.set(key, { turn: session.turn, action_id: r.result.action_id });
   }
-  if (isRefund && args.confirm === true && r.result.status === 'recorded') session.pending.delete(key);
+  if (isRefund && args.confirm === true && r.result.status === 'recorded') {
+    session.pending.delete(key);
+    session.recorded += 1; // P3b: a real recording exists in this session
+  }
   return { status: 'ok', result: r.result };
 }
 
@@ -55,8 +71,14 @@ async function runTurn(session, provider, text, { system } = {}) {
     const out = await provider.next({ messages: session.messages, tools: TOOLS, ...(system ? { system } : {}) });
     modelCalls += 1;
     if (out.type === 'text') {
+      // P3b: a reply that claims "recorded" while the session has no real recording is replaced.
+      // The replacement is what goes into the history, so the model never sees its own false claim.
+      if (session.recorded === 0 && hasRecordedClaim(out.text)) {
+        session.messages.push({ role: 'assistant', content: CLAIM_REPLACEMENT });
+        return { reply: CLAIM_REPLACEMENT, trace, modelCalls, truncated: false, replaced: true, originalReply: out.text };
+      }
       session.messages.push({ role: 'assistant', content: out.text });
-      return { reply: out.text, trace, modelCalls, truncated: false };
+      return { reply: out.text, trace, modelCalls, truncated: false, replaced: false };
     }
     if (out.type !== 'tool_call') throw new Error('provider returned an unknown step type');
     session.messages.push({ role: 'assistant', tool_call: { name: out.name, args: out.args, ...(out.meta ? { meta: out.meta } : {}) } });
@@ -66,7 +88,7 @@ async function runTurn(session, provider, text, { system } = {}) {
   }
 
   session.messages.push({ role: 'assistant', content: FALLBACK_REPLY });
-  return { reply: FALLBACK_REPLY, trace, modelCalls, truncated: true };
+  return { reply: FALLBACK_REPLY, trace, modelCalls, truncated: true, replaced: false };
 }
 
-module.exports = { createSession, runTurn, MAX_STEPS, FALLBACK_REPLY };
+module.exports = { createSession, runTurn, hasRecordedClaim, MAX_STEPS, FALLBACK_REPLY, CLAIM_REPLACEMENT };

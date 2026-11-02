@@ -104,8 +104,11 @@ async function handleAgent(req, res) {
     const r = await runTurn(getSession(sessionId), provider, message, { system: systemPrompt });
     const http_requests = provider.stats ? ` http_requests=${provider.stats.requests - before}` : '';
     console.log(`agent ok: provider=${provider.name} calls=${r.trace.length} model_calls=${r.modelCalls}${http_requests} ${Date.now() - started}ms`);
-    const body = { session_id: sessionId, reply: r.reply, model_calls: r.modelCalls, truncated: r.truncated };
-    if (EXPOSE_TRACE) body.trace = r.trace;
+    const body = { session_id: sessionId, reply: r.reply, model_calls: r.modelCalls, truncated: r.truncated, replaced: r.replaced };
+    if (EXPOSE_TRACE) {
+      body.trace = r.trace;
+      if (r.replaced) body.original_reply = r.originalReply; // test aid, like trace: the false claim the model wrote
+    }
     return send(res, 200, body);
   } catch (e) {
     console.error('agent error:', e.message);
