@@ -107,7 +107,7 @@ async function handleAgent(req, res) {
     const body = { session_id: sessionId, reply: r.reply, model_calls: r.modelCalls, truncated: r.truncated, replaced: r.replaced };
     if (EXPOSE_TRACE) {
       body.trace = r.trace;
-      if (r.replaced) body.original_reply = r.originalReply; // test aid, like trace: the false claim the model wrote
+      if (r.replaced) { body.replaced_reason = r.replacedReason; body.original_reply = r.originalReply; } // test aid, like trace: the false claim the model wrote
     }
     return send(res, 200, body);
   } catch (e) {

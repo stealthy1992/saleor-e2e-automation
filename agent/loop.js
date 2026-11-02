@@ -17,6 +17,48 @@ function hasRecordedClaim(text) {
     .some((sentence) => /\brecorded\b/i.test(sentence) && !NEGATION.test(sentence));
 }
 
+// P3c: a reply that CONTAINS a tool call written as text (JSON object with a registered tool name and a
+// `parameters` or `arguments` key) is replaced by FALLBACK_REPLY. Nothing is parsed into a call or executed
+// (decision 2026-10-31: no salvage). Known limits: only registered tool names; only the name+parameters/arguments
+// shape (seen in stored 8B replies); other formats such as <|python_tag|> are not detected.
+function jsonObjectsIn(text) {
+  const found = [];
+  for (let i = 0; i < text.length; i += 1) {
+    if (text[i] !== '{') continue;
+    let depth = 0;
+    let inStr = false;
+    let esc = false;
+    for (let j = i; j < text.length; j += 1) {
+      const c = text[j];
+      if (inStr) {
+        if (esc) esc = false;
+        else if (c === '\\') esc = true;
+        else if (c === '"') inStr = false;
+        continue;
+      }
+      if (c === '"') inStr = true;
+      else if (c === '{') depth += 1;
+      else if (c === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          try { found.push(JSON.parse(text.slice(i, j + 1))); } catch { /* not JSON */ }
+          break;
+        }
+      }
+    }
+  }
+  return found;
+}
+
+function looksLikeToolCallText(text) {
+  return jsonObjectsIn(String(text || '')).some(
+    (o) =>
+      o && typeof o === 'object' && !Array.isArray(o) &&
+      typeof o.name === 'string' && Object.prototype.hasOwnProperty.call(TOOL_BY_NAME, o.name) &&
+      (o.parameters !== undefined || o.arguments !== undefined),
+  );
+}
+
 // One session = one customer conversation. `backend` is anything with call(name, args) and state();
 // both may return a Promise (the Saleor backend does, the mock does not).
 function createSession(backend) {
@@ -71,11 +113,16 @@ async function runTurn(session, provider, text, { system } = {}) {
     const out = await provider.next({ messages: session.messages, tools: TOOLS, ...(system ? { system } : {}) });
     modelCalls += 1;
     if (out.type === 'text') {
+      // P3c first: a tool call written as text is never shown to the customer.
+      if (looksLikeToolCallText(out.text)) {
+        session.messages.push({ role: 'assistant', content: FALLBACK_REPLY });
+        return { reply: FALLBACK_REPLY, trace, modelCalls, truncated: false, replaced: true, replacedReason: 'tool_call_text', originalReply: out.text };
+      }
       // P3b: a reply that claims "recorded" while the session has no real recording is replaced.
       // The replacement is what goes into the history, so the model never sees its own false claim.
       if (session.recorded === 0 && hasRecordedClaim(out.text)) {
         session.messages.push({ role: 'assistant', content: CLAIM_REPLACEMENT });
-        return { reply: CLAIM_REPLACEMENT, trace, modelCalls, truncated: false, replaced: true, originalReply: out.text };
+        return { reply: CLAIM_REPLACEMENT, trace, modelCalls, truncated: false, replaced: true, replacedReason: 'claim', originalReply: out.text };
       }
       session.messages.push({ role: 'assistant', content: out.text });
       return { reply: out.text, trace, modelCalls, truncated: false, replaced: false };
@@ -91,4 +138,4 @@ async function runTurn(session, provider, text, { system } = {}) {
   return { reply: FALLBACK_REPLY, trace, modelCalls, truncated: true, replaced: false };
 }
 
-module.exports = { createSession, runTurn, hasRecordedClaim, MAX_STEPS, FALLBACK_REPLY, CLAIM_REPLACEMENT };
+module.exports = { createSession, runTurn, hasRecordedClaim, looksLikeToolCallText, MAX_STEPS, FALLBACK_REPLY, CLAIM_REPLACEMENT };
