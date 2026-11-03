@@ -15,6 +15,7 @@
     "agent": "node agent/server.js",
     "agent:check": "node agent/check-cases.js && node agent/check-loop.js",
     "agent:check-providers": "node agent/check-providers.js",
+    "agent:check-guards": "node agent/check-leak-guard.js && node agent/check-claim-guard.js && node agent/check-hardening.js && node agent/check-refund-eligibility.js",
     "agent:smoke": "node agent/smoke.js"
   },
   "dependencies": {

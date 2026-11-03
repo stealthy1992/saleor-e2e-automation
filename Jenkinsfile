@@ -42,6 +42,32 @@ pipeline {
             }
         }
 
+        stage('Agent offline checks (0 model requests)') {
+            // Deterministic checks of the agent loop, its guards and the provider adapters: no model, no Saleor,
+            // no Gemini quota, no private files. Runs before the Docker stack so a broken guard shows up in about a minute.
+            // All three commands always run, so one build shows every failure. Failure marks the build unstable, like the other test stages.
+            steps {
+                script {
+                    def agentChecksExit = powershell(
+                        script: '''
+                            $fail = 0
+                            npm run agent:check-guards
+                            if ($LASTEXITCODE -ne 0) { $fail = 1 }
+                            npm run agent:check-providers
+                            if ($LASTEXITCODE -ne 0) { $fail = 1 }
+                            npm run agent:check
+                            if ($LASTEXITCODE -ne 0) { $fail = 1 }
+                            exit $fail
+                        ''',
+                        returnStatus: true
+                    )
+                    if (agentChecksExit != 0) {
+                        unstable('Agent offline checks failed (guards, providers or case replay) - see console output above. These are deterministic: a failure means the agent code or a check changed.')
+                    }
+                }
+            }
+        }
+
         stage('Install Playwright browsers') {
             steps {
                 // --with-deps is a Linux-only flag (apt-based system deps) — omit
