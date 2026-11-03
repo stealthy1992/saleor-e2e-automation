@@ -4,7 +4,9 @@ const Ajv = require('ajv');
 const TOOL_NAMES = ['get_order', 'get_stock', 'get_policy_clause', 'request_refund'];
 const STATUSES = ['ok', 'invalid', 'blocked'];
 
-// POST /api/agent success body. trace is present only while AGENT_EXPOSE_TRACE is not "0".
+// POST /api/agent success body. replaced is always present. trace, replaced_reason and original_reply
+// are present only while AGENT_EXPOSE_TRACE is not "0" (the last two only when replaced is true).
+const REPLACED_REASONS = ['claim', 'tool_call_text', 'empty_reply'];
 const agentReply = {
   type: 'object',
   properties: {
@@ -12,6 +14,9 @@ const agentReply = {
     reply: { type: 'string', minLength: 1 },
     model_calls: { type: 'integer', minimum: 1 },
     truncated: { type: 'boolean' },
+    replaced: { type: 'boolean' },
+    replaced_reason: { type: 'string', enum: REPLACED_REASONS },
+    original_reply: { type: 'string' },
     trace: {
       type: 'array',
       items: {
@@ -28,8 +33,11 @@ const agentReply = {
       },
     },
   },
-  required: ['session_id', 'reply', 'model_calls', 'truncated'],
+  required: ['session_id', 'reply', 'model_calls', 'truncated', 'replaced'],
   additionalProperties: false,
+  // not replaced: no reason and no original reply
+  if: { properties: { replaced: { const: false } } },
+  then: { not: { anyOf: [{ required: ['replaced_reason'] }, { required: ['original_reply'] }] } },
 };
 
 // Error body, for example {"error":"agent_error"}.
@@ -83,4 +91,4 @@ function validateAgent(name, payload) {
   };
 }
 
-module.exports = { agentReply, agentError, agentState, validateAgent, TOOL_NAMES };
+module.exports = { agentReply, agentError, agentState, validateAgent, TOOL_NAMES, REPLACED_REASONS };
