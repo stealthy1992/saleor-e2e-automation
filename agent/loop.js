@@ -103,7 +103,23 @@ async function execute(session, name, args) {
 // (Gemini's thoughtSignature): it is stored on the assistant tool_call message so the adapter can send it back,
 // and it never goes into the trace.
 // Every provider.next call is one model request, so modelCalls is the request count for the turn.
-async function runTurn(session, provider, text, { system } = {}) {
+// H3: a turn that fails (provider or backend throws) leaves no mark on the session, unless a refund was already
+// recorded in it. The customer's retry then behaves as if the failed turn never happened (the pending confirmation survives).
+async function runTurn(session, provider, text, opts = {}) {
+  const snap = { len: session.messages.length, turn: session.turn, recorded: session.recorded, pending: new Map(session.pending) };
+  try {
+    return await runTurnInner(session, provider, text, opts);
+  } catch (e) {
+    if (session.recorded === snap.recorded) {
+      session.messages.length = snap.len;
+      session.turn = snap.turn;
+      session.pending = snap.pending;
+    }
+    throw e;
+  }
+}
+
+async function runTurnInner(session, provider, text, { system } = {}) {
   session.turn += 1;
   session.messages.push({ role: 'user', content: text });
   const trace = [];

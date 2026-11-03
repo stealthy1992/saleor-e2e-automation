@@ -37,6 +37,37 @@ const run = async (steps) => { const s = createSession(createMockTools()); retur
   const claim = await run([text('The request for a refund has been recorded.')]);
   check('P3b still wins for a false claim', claim.r.replacedReason === 'claim');
 
+
+  // H3: a failed turn leaves no mark on the session, unless a refund was already recorded in it.
+  const A = { order_number: '1002', email: 'sara.k@example.com', reason: 'item arrived damaged' };
+  const refund = (confirm) => call('request_refund', { ...A, confirm });
+  const boom = () => new Error('ollama HTTP 500');
+  const seq = (steps) => { let i = 0; return { next: async () => { const s = steps[i++]; if (s instanceof Error) throw s; return s; } }; };
+  {
+    const s = createSession(createMockTools());
+    await runTurn(s, seq([refund(false), text('Please confirm?')]), 'refund 1002');
+    const before = { turn: s.turn, len: s.messages.length, pending: s.pending.size };
+    let err = null;
+    try { await runTurn(s, seq([boom()]), 'yes'); } catch (e) { err = e; }
+    check('H3 error is rethrown unchanged', err && err.message === 'ollama HTTP 500');
+    check('H3 failed turn: turn, history and pending restored', s.turn === before.turn && s.messages.length === before.len && s.pending.size === before.pending);
+    const r = await runTurn(s, seq([refund(true), text('done')]), 'yes');
+    check('H3 retry of "yes" after the error is recorded', r.trace[0].result.status === 'recorded' && s.recorded === 1);
+  }
+  {
+    const s = createSession(createMockTools());
+    try { await runTurn(s, seq([refund(false), boom()]), 'refund 1002'); } catch (e) { /* expected */ }
+    check('H3 pending created in a failed turn is removed, turn restored', s.pending.size === 0 && s.turn === 0 && s.messages.length === 0);
+  }
+  {
+    const s = createSession(createMockTools());
+    await runTurn(s, seq([refund(false), text('Please confirm?')]), 'refund 1002');
+    try { await runTurn(s, seq([refund(true), boom()]), 'yes'); } catch (e) { /* expected */ }
+    check('H3 refund already recorded in the failed turn: state is kept', s.recorded === 1 && s.turn === 2 && s.messages.length > 4);
+    const r = await runTurn(s, seq([refund(true), text('ok')]), 'yes');
+    check('H3 no second recording after that', s.recorded === 1 && r.trace[0].status !== 'ok');
+  }
+
   console.log(`${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })();
