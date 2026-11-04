@@ -9,7 +9,7 @@ const { test, expect } = require('@playwright/test');
 test.describe('Agent HTTP API (stub provider, saleor backend)', () => {
     let query = null;
     let loaded = false;
-    let order = null;       // { number, user_email, status, charge_status }; number >= 100 because the tool schema only accepts 3 to 10 digits; never a fully refunded order (P3a rejects those)
+    let order = null;       // { number, user_email, status, charge_status }; number >= 100 because the tool schema only accepts 3 to 10 digits; never a fully refunded order (P3a rejects those) and never an uncharged one (P3e rejects those)
     let productName = null; // a single-word "Tulip & Teak X" product, because the stub reads one word
 
     test.beforeEach(async ({ request }) => {
@@ -26,7 +26,7 @@ test.describe('Agent HTTP API (stub provider, saleor backend)', () => {
             ({ query } = require('../../utils/db-client'));
             const o = await query(
                 `SELECT number, user_email, status, charge_status FROM order_order o
-                  WHERE user_email <> '' AND status = 'unfulfilled' AND number >= 100
+                  WHERE user_email <> '' AND status = 'unfulfilled' AND number >= 100 AND charge_status <> 'none'
                     AND NOT EXISTS (SELECT 1 FROM payment_payment p WHERE p.order_id = o.id AND p.charge_status = 'fully-refunded')
                   ORDER BY number ASC LIMIT 1`);
             const p = await query(
@@ -55,7 +55,7 @@ test.describe('Agent HTTP API (stub provider, saleor backend)', () => {
     const dbActions = (session_id) => query(
         'SELECT action_id, order_number, email, reason, status FROM agent_actions WHERE session_id = $1 ORDER BY id',
         [session_id]);
-    const needOrder = () => test.skip(!order, 'no unfulfilled order with an email found in order_order');
+    const needOrder = () => test.skip(!order, 'no charged, unfulfilled order with an email found in order_order');
     const refundMessage = () => `I want a refund for order ${order.number}, email ${order.user_email}. The item arrived damaged.`;
 
     test('AGENT-SALEOR-001: /health reports the saleor backend', async ({ request }) => {
@@ -206,6 +206,33 @@ test.describe('Agent HTTP API (stub provider, saleor backend)', () => {
         expect(body.trace).toHaveLength(1);
         expect(body.trace[0]).toMatchObject({ tool: 'request_refund', args: { confirm: false }, status: 'ok' });
         expect(body.trace[0].result).toEqual({ status: 'rejected', error: 'already_refunded' });
+        expect(await dbActions(sid)).toEqual([]);
+        expect(await state(request, sid)).toMatchObject({ actions: [], pending: 0 });
+    });
+
+    test('AGENT-SALEOR-009: refund for an unfulfilled order with nothing charged is rejected as not_paid', async ({ request }) => {
+        // Discovery: unfulfilled, order-level charge NONE, and no payment row that is charged or refunded.
+        // Skips when the database has no such order. A failing query fails loudly (no silent skip).
+        let rows;
+        try {
+            rows = await query(
+                `SELECT o.number, o.user_email FROM order_order o
+                  WHERE o.status = 'unfulfilled' AND o.charge_status = 'none' AND o.user_email <> '' AND o.number >= 100
+                    AND NOT EXISTS (SELECT 1 FROM payment_payment p WHERE p.order_id = o.id
+                                      AND p.charge_status IN ('partially-charged', 'fully-charged', 'partially-refunded', 'fully-refunded'))
+                  ORDER BY o.number ASC LIMIT 1`);
+        } catch (err) {
+            throw new Error(`discovery query failed (check payment_payment and order_order column names): ${err.message}`);
+        }
+        test.skip(!rows.length, 'no unfulfilled order with nothing charged found in order_order');
+        const unpaid = rows[0];
+
+        const sid = newSession();
+        const body = await say(request, sid,
+            `I want a refund for order ${unpaid.number}, email ${unpaid.user_email}. The item arrived damaged.`);
+        expect(body.trace).toHaveLength(1);
+        expect(body.trace[0]).toMatchObject({ tool: 'request_refund', args: { confirm: false }, status: 'ok' });
+        expect(body.trace[0].result).toEqual({ status: 'rejected', error: 'not_paid' });
         expect(await dbActions(sid)).toEqual([]);
         expect(await state(request, sid)).toMatchObject({ actions: [], pending: 0 });
     });

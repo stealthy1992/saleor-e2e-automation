@@ -204,7 +204,7 @@ const SYNTH_POLICY = [
     await fake.close();
   });
   await check('gemini: refund flow over two messages (confirm=false, then confirm=true) records one action', async () => {
-    const args = { order_number: '1001', email: 'amir.jee@example.com', reason: 'wrong size' };
+    const args = { order_number: '1002', email: 'sara.k@example.com', reason: 'wrong size' };
     const script = [
       geminiCall('request_refund', { ...args, confirm: false }, 'S1'), geminiText('Please confirm the refund request.'),
       geminiCall('request_refund', { ...args, confirm: true }, 'S2'), geminiText('Recorded for staff review.'),
@@ -213,7 +213,7 @@ const SYNTH_POLICY = [
     const backend = createMockTools();
     const session = createSession(backend);
     const p = createGemini({ apiKey: 'k', baseUrl: fake.url, retryDelayMs: 0 });
-    const r1 = await runTurn(session, p, 'Refund order 1001 amir.jee@example.com, wrong size', { system: 'S' });
+    const r1 = await runTurn(session, p, 'Refund order 1002 sara.k@example.com, wrong size', { system: 'S' });
     const r2 = await runTurn(session, p, 'Yes, please go ahead', { system: 'S' });
     assert.strictEqual(r1.trace[0].result.status, 'pending_confirmation');
     assert.strictEqual(r2.trace[0].status, 'ok');

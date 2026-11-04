@@ -42,17 +42,17 @@ async function say(sessionId, message) {
   return r.json;
 }
 
-// Saleor backend: use SMOKE_ORDER / SMOKE_EMAIL, or find an unfulfilled order the same way agent-saleor.spec.js does.
+// Saleor backend: use SMOKE_ORDER / SMOKE_EMAIL, or find a charged, unfulfilled order the same way agent-saleor.spec.js does.
 async function findOrder(backend) {
   if (backend !== 'saleor') return { ...MOCK, db: null };
   if (process.env.SMOKE_ORDER && process.env.SMOKE_EMAIL) return { order: process.env.SMOKE_ORDER, email: process.env.SMOKE_EMAIL, db: null };
   const db = require('../utils/db-client');
   const rows = await db.query(
     `SELECT number, user_email FROM order_order o
-      WHERE user_email <> '' AND status = 'unfulfilled' AND number >= 100
+      WHERE user_email <> '' AND status = 'unfulfilled' AND number >= 100 AND charge_status <> 'none'
         AND NOT EXISTS (SELECT 1 FROM payment_payment p WHERE p.order_id = o.id AND p.charge_status = 'fully-refunded')
       ORDER BY number ASC LIMIT 1`);
-  if (!rows[0]) throw new Error('no unfulfilled order with number >= 100 found; set SMOKE_ORDER and SMOKE_EMAIL');
+  if (!rows[0]) throw new Error('no charged, unfulfilled order with number >= 100 found; set SMOKE_ORDER and SMOKE_EMAIL');
   return { order: String(rows[0].number), email: rows[0].user_email, db };
 }
 

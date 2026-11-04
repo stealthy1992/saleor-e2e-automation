@@ -86,10 +86,24 @@ function validateArgs(name, args) {
   };
 }
 
-// Deterministic refund eligibility (P3a). Returns an error code when a refund must not be requested, else null.
-// Only FULLY_REFUNDED is decided here: other payment states depend on the private policy and are not guessed.
+// Deterministic refund eligibility (P3a, P3e). Returns an error code when a refund must not be requested, else null.
+// Money facts only, first match wins:
+//   1. paymentStatus FULLY_REFUNDED -> already_refunded
+//   2. nothing was ever charged (unpaid paymentStatus AND chargeStatus NONE) on an UNFULFILLED order -> not_paid
+//      (policy 4.1: cancel instead). A delivered order with no recorded charge (cash on delivery) is NOT matched.
+// Everything else is allowed. Order statuses such as CANCELED or RETURNED are never a reason here.
+const UNPAID_PAYMENT_STATUSES = ['NOT_CHARGED', 'PENDING', 'REFUSED', 'CANCELLED'];
+
 function refundBlockedReason(facts) {
-  if (facts && facts.paymentStatus === 'FULLY_REFUNDED') return 'already_refunded';
+  if (!facts) return null;
+  if (facts.paymentStatus === 'FULLY_REFUNDED') return 'already_refunded';
+  if (
+    UNPAID_PAYMENT_STATUSES.includes(facts.paymentStatus) &&
+    facts.chargeStatus === 'NONE' &&
+    facts.status === 'UNFULFILLED'
+  ) {
+    return 'not_paid';
+  }
   return null;
 }
 
