@@ -344,6 +344,78 @@ pipeline {
             }
         }
 
+        stage('Run agent specs on the Saleor backend (stub provider)') {
+            // The 11 agent-saleor specs skip themselves in the main run (the :3200 agent is stub/mock).
+            // Here a separate agent on :3202 uses the stub provider with the saleor backend, so they run for real:
+            // no Gemini quota, no new credentials. It reads Saleor, writes only its own refund rows, and changes nothing in Saleor.
+            // Own report/JSON/output folders (Playwright wipes its output folder at the start of every run).
+            // Unstable if the agent does not start or a spec fails.
+            steps {
+                withCredentials([
+                    string(credentialsId: 'SALEOR_ADMIN_EMAIL', variable: 'ADMIN_EMAIL'),
+                    string(credentialsId: 'SALEOR_ADMIN_PASSWORD', variable: 'ADMIN_PASSWORD'),
+                    string(credentialsId: 'SALEOR_LIMITED_ACCESS_USER_EMAIL', variable: 'LIMITED_ACCESS_USER_EMAIL'),
+                    string(credentialsId: 'SALEOR_LIMITED_ACCESS_USER_PASSWORD', variable: 'LIMITED_ACCESS_USER_PASSWORD'),
+                    string(credentialsId: 'SALEOR_DATABASE_URL', variable: 'DATABASE_URL'),
+                    string(credentialsId: 'SALEOR_APP_TOKEN', variable: 'SALEOR_APP_TOKEN')
+                ]) {
+                    script {
+                        def agentSaleorExit = powershell(
+                            script: '''
+                                $ErrorActionPreference = "Continue"
+
+                                # assistant/saleor.js appends /graphql/ itself, so the agent needs the BASE url.
+                                # Only the child process gets it: Playwright's global setup keeps the pipeline value.
+                                $origApiUrl = $env:SALEOR_API_URL
+                                $env:SALEOR_API_URL = "http://localhost:8000"
+                                $env:AGENT_PORT = "3202"
+                                $env:AGENT_PROVIDER = "stub"
+                                $env:AGENT_BACKEND = "saleor"
+
+                                $p = Start-Process -FilePath "cmd.exe" `
+                                    -ArgumentList '/c node agent/server.js > agent.saleor.out.log 2> agent.saleor.err.log' `
+                                    -PassThru -WindowStyle Hidden
+                                Set-Content -Path "agent.saleor.pid" -Value $p.Id
+                                Write-Host "agent (saleor backend) started, pid $($p.Id)"
+                                $env:SALEOR_API_URL = $origApiUrl
+
+                                $ready = $false
+                                for ($i = 1; $i -le 30; $i++) {
+                                    try {
+                                        $h = Invoke-RestMethod -Uri "http://localhost:3202/health" -TimeoutSec 3
+                                        if ($h.provider -eq "stub" -and $h.backend -eq "saleor") {
+                                            Write-Host "Agent is up (stub/saleor)"
+                                            $ready = $true
+                                        } else {
+                                            Write-Host "Agent reports provider $($h.provider) backend $($h.backend), expected stub/saleor"
+                                        }
+                                        break
+                                    } catch {
+                                        Write-Host "Waiting for agent (saleor backend)... ($i/30)"
+                                        Start-Sleep -Seconds 2
+                                    }
+                                }
+                                if (-not $ready) {
+                                    Get-Content agent.saleor.err.log -ErrorAction SilentlyContinue
+                                    exit 1
+                                }
+
+                                $env:AGENT_URL = "http://localhost:3202"
+                                $env:PW_HTML_DIR = "playwright-report-agent-saleor"
+                                $env:PW_JSON_FILE = "test-results-agent-saleor/results.json"
+                                npx playwright test --project=agent tests/agent/agent-saleor.spec.js --workers=1 --output=test-results-agent-saleor
+                                exit $LASTEXITCODE
+                            ''',
+                            returnStatus: true
+                        )
+                        if (agentSaleorExit != 0) {
+                            unstable('Agent specs on the Saleor backend failed or the agent did not start. See Playwright Agent (Saleor) Report and agent.saleor.err.log.')
+                        }
+                    }
+                }
+            }
+        }
+
         stage('Bring up k6 performance stack (InfluxDB + Grafana)') {
             steps {
                 // Idempotent — `docker compose up -d` is a no-op if the stack is
@@ -763,6 +835,14 @@ pipeline {
                 exit 0
             '''
 
+            powershell '''
+                if (Test-Path agent.saleor.pid) {
+                    taskkill /PID ([int](Get-Content agent.saleor.pid)) /T /F | Out-Null
+                    Remove-Item agent.saleor.pid -ErrorAction SilentlyContinue
+                }
+                exit 0
+            '''
+
             // Requires the HTML Publisher plugin.
             // CSP note: run System.setProperty("hudson.model.DirectoryBrowserSupport.CSP", "")
             // in Manage Jenkins > Script Console before triggering the build —
@@ -785,12 +865,23 @@ pipeline {
                 reportFiles: 'index.html',
                 reportName: 'Playwright Throttle Report'
             ])
+            // Agent specs on the Saleor backend: separate report + results (see that stage above).
+            publishHTML(target: [
+                allowMissing: true,
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: 'playwright-report-agent-saleor',
+                reportFiles: 'index.html',
+                reportName: 'Playwright Agent (Saleor) Report'
+            ])
             archiveArtifacts artifacts: 'test-results/**', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'test-results-agent-saleor/**', allowEmptyArchive: true
             archiveArtifacts artifacts: 'test-results-throttle/**', allowEmptyArchive: true
             archiveArtifacts artifacts: 'reports/*.html', allowEmptyArchive: true
             archiveArtifacts artifacts: 'assistant.*.log', allowEmptyArchive: true
             archiveArtifacts artifacts: 'eval-*.log', allowEmptyArchive: true
             archiveArtifacts artifacts: 'agent.gate.*.log', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'agent.saleor.*.log', allowEmptyArchive: true
             archiveArtifacts artifacts: 'agent-gate-*.log', allowEmptyArchive: true
         }
         success {
