@@ -210,21 +210,21 @@ test.describe('Agent HTTP API (stub provider, saleor backend)', () => {
         expect(await state(request, sid)).toMatchObject({ actions: [], pending: 0 });
     });
 
-    test('AGENT-SALEOR-009: refund for an unfulfilled order with nothing charged is rejected as not_paid', async ({ request }) => {
-        // Discovery: unfulfilled, order-level charge NONE, and no payment row that is charged or refunded.
+    test('AGENT-SALEOR-009: refund for an unfulfilled or unconfirmed order with nothing charged is rejected as not_paid', async ({ request }) => {
+        // Discovery: unfulfilled or unconfirmed, order-level charge NONE, and no payment row that is charged or refunded.
         // Skips when the database has no such order. A failing query fails loudly (no silent skip).
         let rows;
         try {
             rows = await query(
                 `SELECT o.number, o.user_email FROM order_order o
-                  WHERE o.status = 'unfulfilled' AND o.charge_status = 'none' AND o.user_email <> '' AND o.number >= 100
+                  WHERE o.status IN ('unfulfilled', 'unconfirmed') AND o.charge_status = 'none' AND o.user_email <> '' AND o.number >= 100
                     AND NOT EXISTS (SELECT 1 FROM payment_payment p WHERE p.order_id = o.id
                                       AND p.charge_status IN ('partially-charged', 'fully-charged', 'partially-refunded', 'fully-refunded'))
                   ORDER BY o.number ASC LIMIT 1`);
         } catch (err) {
             throw new Error(`discovery query failed (check payment_payment and order_order column names): ${err.message}`);
         }
-        test.skip(!rows.length, 'no unfulfilled order with nothing charged found in order_order');
+        test.skip(!rows.length, 'no unfulfilled or unconfirmed order with nothing charged found in order_order');
         const unpaid = rows[0];
 
         const sid = newSession();

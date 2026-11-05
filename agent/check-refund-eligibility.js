@@ -35,18 +35,22 @@ async function main() {
   check('FULLY_REFUNDED wins over rule 2 (unfulfilled, chargeStatus NONE)',
     refundBlockedReason({ status: 'UNFULFILLED', paymentStatus: 'FULLY_REFUNDED', chargeStatus: 'NONE' }) === 'already_refunded');
 
-  console.log('helper: rule 2 (not_paid) = unpaid paymentStatus AND chargeStatus NONE AND status UNFULFILLED');
+  console.log('helper: rule 2 (not_paid) = unpaid paymentStatus AND chargeStatus NONE AND status UNFULFILLED or UNCONFIRMED');
   for (const s of ['NOT_CHARGED', 'PENDING', 'REFUSED', 'CANCELLED']) {
     check(`UNFULFILLED + ${s} + NONE -> not_paid`,
       refundBlockedReason({ status: 'UNFULFILLED', paymentStatus: s, chargeStatus: 'NONE' }) === 'not_paid');
   }
-  for (const st of ['FULFILLED', 'PARTIALLY_FULFILLED', 'CANCELED', 'RETURNED', 'DRAFT', 'UNCONFIRMED', 'EXPIRED', undefined]) {
-    check(`${st} + NOT_CHARGED + NONE -> null (status is not UNFULFILLED)`,
+  check('UNCONFIRMED + NOT_CHARGED + NONE -> not_paid (order 18 in the local probe)',
+    refundBlockedReason({ status: 'UNCONFIRMED', paymentStatus: 'NOT_CHARGED', chargeStatus: 'NONE' }) === 'not_paid');
+  for (const st of ['FULFILLED', 'PARTIALLY_FULFILLED', 'CANCELED', 'RETURNED', 'DRAFT', 'EXPIRED', undefined]) {
+    check(`${st} + NOT_CHARGED + NONE -> null (status is neither UNFULFILLED nor UNCONFIRMED)`,
       refundBlockedReason({ status: st, paymentStatus: 'NOT_CHARGED', chargeStatus: 'NONE' }) === null);
   }
   for (const c of ['PARTIAL', 'FULL', 'OVERCHARGED', undefined]) {
-    check(`UNFULFILLED + NOT_CHARGED + chargeStatus ${c} -> null (something was charged or unknown)`,
-      refundBlockedReason({ status: 'UNFULFILLED', paymentStatus: 'NOT_CHARGED', chargeStatus: c }) === null);
+    for (const st of ['UNFULFILLED', 'UNCONFIRMED']) {
+      check(`${st} + NOT_CHARGED + chargeStatus ${c} -> null (something was charged or unknown)`,
+        refundBlockedReason({ status: st, paymentStatus: 'NOT_CHARGED', chargeStatus: c }) === null);
+    }
   }
   for (const p of ['FULLY_CHARGED', 'PARTIALLY_CHARGED', 'PARTIALLY_REFUNDED', undefined]) {
     check(`UNFULFILLED + ${p} + NONE -> null (paymentStatus not in the unpaid set)`,
@@ -61,6 +65,7 @@ async function main() {
     '1004': { email: 'noor.a@example.com', facts: refundedFacts },
     '1005': { email: 'noor.a@example.com', facts: { ...unpaidFacts, number: '1005' } },
     '1006': { email: 'noor.a@example.com', facts: { ...codDeliveredFacts, number: '1006' } },
+    '1007': { email: 'noor.a@example.com', facts: { ...unpaidFacts, number: '1007', status: 'UNCONFIRMED' } },
   };
   const mock = createMockTools({ orders });
   const r1 = mock.call('request_refund', { ...REFUND, confirm: false });
@@ -78,6 +83,9 @@ async function main() {
   check('unpaid unfulfilled: confirm:true is rejected the same way', n2.ok && n2.result.error === 'not_paid', JSON.stringify(n2));
   const n3 = mock.call('get_order', { order_number: '1005', email: 'noor.a@example.com' });
   check('get_order still returns the unpaid order', n3.ok && n3.result.found === true && n3.result.order.chargeStatus === 'NONE');
+
+  const n4 = mock.call('request_refund', { ...REFUND, order_number: '1007', confirm: false });
+  check('unconfirmed, nothing charged: confirm:false is rejected as not_paid', n4.ok && same(n4.result, { status: 'rejected', error: 'not_paid' }), JSON.stringify(n4));
 
   const c1 = mock.call('request_refund', { ...REFUND, order_number: '1006', confirm: false });
   check('delivered, no charge recorded (COD): confirm:false gets pending_confirmation', c1.ok && c1.result.status === 'pending_confirmation', JSON.stringify(c1));
@@ -118,6 +126,11 @@ async function main() {
   check('unpaid: no pending created', stU.pending === 0, JSON.stringify(stU));
   const u2 = await realU.call('request_refund', { ...REFUND, confirm: true });
   check('unpaid: confirm:true is rejected the same way and nothing is inserted', u2.ok && u2.result.error === 'not_paid' && inserts() === 0, JSON.stringify(u2));
+
+  node = { ...unpaidFacts, status: 'UNCONFIRMED', userEmail: 'noor.a@example.com' };
+  const realN = createSaleorTools({ sessionId: 'check-n', saleor, db });
+  const k1 = await realN.call('request_refund', { ...REFUND, confirm: false });
+  check('unconfirmed, nothing charged: rejected as not_paid', k1.ok && same(k1.result, { status: 'rejected', error: 'not_paid' }), JSON.stringify(k1));
 
   node = { ...codDeliveredFacts, userEmail: 'noor.a@example.com' };
   const realC = createSaleorTools({ sessionId: 'check-c', saleor, db });
