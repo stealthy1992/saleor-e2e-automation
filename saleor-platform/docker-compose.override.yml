@@ -1,0 +1,7 @@
+# Auto-loaded by `docker compose up -d` when it is run in this folder WITHOUT -f.
+# It adds the Langfuse stack (../langfuse) to this project (saleor-platform).
+# Jenkins runs `docker compose -f docker-compose.yml ...`, which skips this file.
+# Needs ../langfuse/.env: run `node ../langfuse/gen-env.js` once.
+include:
+  - path: ../langfuse/docker-compose.yml
+    env_file: ../langfuse/.env
