@@ -89,7 +89,7 @@ pipeline {
                             Get-FileHash backend.env | Format-List
                         '''
                     }
-                    powershell 'docker compose up -d'
+                    powershell 'docker compose -f docker-compose.yml up -d'
                 }
                 powershell '''
                     $ready = $false
@@ -897,7 +897,7 @@ pipeline {
             // Only the Saleor application stack is torn down. The k6 perf
             // stack (InfluxDB + Grafana) stays up — see stage comment above.
             dir('saleor-platform') {
-                powershell 'docker compose down'
+                powershell 'docker compose -f docker-compose.yml down'
             }
         }
     }
