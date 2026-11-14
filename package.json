@@ -19,7 +19,7 @@
     "agent:smoke": "node agent/smoke.js"
   },
   "dependencies": {
-    "@playwright/test": "^1.48.0",
+    "@playwright/test": "1.65.0",
     "dotenv": "^16.4.5",
     "pg": "^8.13.0"
   },
