@@ -21,3 +21,5 @@ playwright-report-throttle/
 agent/private/
 git-filter-repo
 login-menu-timeout-*.png
+backend.env
+saleor-db-creds.txt
