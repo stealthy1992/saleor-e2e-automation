@@ -1,5 +1,24 @@
 require('dotenv').config();
 const { defineConfig, devices } = require('@playwright/test');
+// Storefront project is opt-in: it only exists when STOREFRONT_URL is set (e.g. in .env),
+// so Jenkins runs without a storefront keep working unchanged.
+const storefrontProject = {
+  name: 'storefront',
+  testDir: './tests/storefront',
+  timeout: 90000,
+  use: {
+    ...devices['Desktop Chrome'],
+    baseURL: process.env.STOREFRONT_URL,
+    // the Dashboard uses data-test-id (set globally above); the storefront uses data-testid
+    testIdAttribute: 'data-testid',
+    headless: true,
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+    trace: 'retain-on-failure',
+    // no storageState: storefront tests run as a guest
+  },
+};
+
 module.exports = defineConfig({
   globalSetup: require.resolve('./utils/global-setup.js'),
   testDir: './tests',
@@ -57,5 +76,6 @@ module.exports = defineConfig({
         baseURL: process.env.AGENT_URL || 'http://localhost:3200',
       },
     },
+    ...(process.env.STOREFRONT_URL ? [storefrontProject] : []),
   ],
-});
+});

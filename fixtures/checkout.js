@@ -1,5 +1,6 @@
 const { test: productTest } = require('./customer'); // chains onto customer.js -> auth.js 
 const { request: pwRequest } = require('@playwright/test');
+const { randomUUID } = require('crypto');
 const { graphqlRequest } = require('../utils/graphql-client');
 const { pool, query } = require('../utils/db-client'); // adjust path if db-client.js lives elsewhere
 
@@ -50,6 +51,20 @@ async function hardDeleteOrders(globalOrderIds) {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+
+        // Transactions API orders (storefront + Dummy Payment App): in Saleor 3.23
+        // TransactionItem.order is on_delete=PROTECT, so these rows must go before
+        // order_order or the whole delete rolls back on an FK violation. Events are
+        // only cascaded by the Django ORM, not by the database, so delete them first.
+        await client.query(
+            `DELETE FROM payment_transactionevent
+             WHERE transaction_id IN (SELECT id FROM payment_transactionitem WHERE order_id = ANY($1::uuid[]))`,
+            [orderIds]
+        );
+        await client.query(
+            `DELETE FROM payment_transactionitem WHERE order_id = ANY($1::uuid[])`,
+            [orderIds]
+        );
 
         await client.query(
             `DELETE FROM payment_transaction
@@ -315,6 +330,53 @@ exports.test = productTest.extend({
             await ctx.dispose();
         },
         { scope: 'worker' },
+    ],
+
+    // Test-scoped. One unique guest email per test, plus teardown of whatever
+    // orders that email produced (cancel via GraphQL, then hard-delete via SQL).
+    // Looked up by the exact email only, never a pattern. Own timeout so the
+    // cleanup still gets time when the test itself timed out.
+    guestEmail: [
+        async ({ staffToken }, use) => {
+            const email = `sf-${randomUUID()}@example.com`;
+
+            await use(email);
+
+            const ctx = await pwRequest.newContext({ baseURL: process.env.SALEOR_API_URL });
+            try {
+                const rows = await query('SELECT id FROM order_order WHERE user_email = $1', [email]);
+                const globalIds = rows.map(r => Buffer.from(`Order:${r.id}`).toString('base64'));
+                if (!globalIds.length) {
+                    console.log(`guestEmail teardown: no order for ${email}`);
+                    return;
+                }
+
+                for (const orderId of globalIds) {
+                    try {
+                        const { data } = await graphqlRequest(ctx, `
+                            mutation OrderCancel($id: ID!) {
+                                orderCancel(id: $id) {
+                                    order { id status }
+                                    errors { field message code }
+                                }
+                            }
+                        `, { id: orderId }, staffToken);
+                        if (data.orderCancel.errors.length) {
+                            console.error(`guestEmail teardown: orderCancel failed for ${orderId}: ${JSON.stringify(data.orderCancel.errors)}`);
+                        }
+                    } catch (err) {
+                        console.error(`guestEmail teardown: cancel threw for ${orderId}: ${err.message}`);
+                    }
+                }
+
+                await hardDeleteOrders(globalIds);
+            } catch (err) {
+                console.error(`guestEmail teardown: failed for ${email}: ${err.message}`);
+            } finally {
+                await ctx.dispose();
+            }
+        },
+        { timeout: 60000 },
     ],
 });
 exports.expect = productTest.expect;
