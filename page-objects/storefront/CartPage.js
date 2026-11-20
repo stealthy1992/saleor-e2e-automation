@@ -122,6 +122,8 @@ class CartPage extends BasePage {
     }
 
     async validAddressDetailCheck(customer) {
+        const areaInput = this.page.locator('[name="cityArea"]');
+        const areaSelect = this.page.locator('select#countryArea');
         await this.page.locator('input[type="email"]').waitFor({ state: 'visible' });
         await this.page.locator('input[type="email"]').fill(customer.email);
         await this.page.locator('input[name="firstName"]').fill(customer.firstName);
@@ -131,10 +133,14 @@ class CartPage extends BasePage {
         const country = this.page.locator('select#country');
         await country.selectOption({ label: customer.country });
         await this.page.locator('[name="postalCode"]').fill(customer.postalCode);
-        if (await this.page.locator('[name="cityArea"]').isVisible()) {
-            await this.page.locator('[name="cityArea"]').fill(customer.countryArea);
+
+        await areaInput.or(areaSelect).first().waitFor({ state: 'visible', timeout: 5000 });
+
+        if (await areaInput.isVisible()) {
+            await areaInput.fill(customer.countryArea);
+        } else {
+            await areaSelect.selectOption({ label: customer.countryArea });
         }
-        else await this.page.locator('select#countryArea').selectOption({ label: customer.countryArea });
 
         await this.selectors.continueToShippingButton.waitFor({ state: 'visible' });
         await this.selectors.continueToShippingButton.click();
