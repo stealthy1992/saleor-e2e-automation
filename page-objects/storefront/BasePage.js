@@ -14,6 +14,9 @@ class BasePage {
         await expect(this.page.getByRole('button', { name: 'Adding' })).toBeVisible();
         await expect(this.page.getByRole('button', { name: 'Add to bag' })).toBeEnabled({ timeout: 10000 });
         // await this.selectors.cartNavItem.waitFor({ state: 'visible' });
+        const badge = this.page.getByTestId('CartNavItem').locator('span').first();
+        await expect(badge).toBeVisible();
+        await expect(badge).toHaveText('1');
         await this.page.getByTestId('CartNavItem').click();
         await this.page.getByRole('link', { name: 'Checkout' }).waitFor({ state: 'visible' });
         await expect(this.page.locator('div[role="dialog"] a', { hasText: productName })).toBeVisible();

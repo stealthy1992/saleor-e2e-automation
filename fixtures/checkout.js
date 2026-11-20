@@ -378,5 +378,21 @@ exports.test = productTest.extend({
         },
         { timeout: 60000 },
     ],
+
+    // Test-scoped. An API request context pinned to the Saleor API (SALEOR_API_URL) for
+    // GraphQL calls made from inside storefront tests. The built-in `request` fixture is
+    // bound to the project's baseURL, which for the storefront project is the storefront
+    // (Next.js answers with an HTML 404), not the API. Use it as:
+    //   graphqlRequest(saleorApi, query, variables, staffToken)
+    saleorApi: async ({}, use) => {
+        const ctx = await pwRequest.newContext({
+            baseURL: process.env.SALEOR_API_URL || 'http://localhost:8000',
+        });
+        try {
+            await use(ctx);
+        } finally {
+            await ctx.dispose();
+        }
+    },
 });
 exports.expect = productTest.expect;
